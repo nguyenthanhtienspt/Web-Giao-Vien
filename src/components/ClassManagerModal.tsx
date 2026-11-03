@@ -133,6 +133,17 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
     }
   };
 
+  const handleResetToSystemDefault = () => {
+    if (window.confirm('Thầy có chắc chắn muốn nạp lại danh sách lớp chuẩn (Lớp 9A1, 9B...) từ hệ thống không?')) {
+      const defaultList = classStorage.resetToDefault();
+      setClasses(defaultList);
+      if (defaultList.length > 0) {
+        onSelectClass(defaultList[0]);
+      }
+      alert('Đã nạp thành công danh sách lớp chuẩn (Lớp 9A1, 9B...) vào hệ thống!');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
       <div className={`w-full max-w-3xl rounded-3xl border-4 overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 ${
@@ -383,6 +394,14 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
                   >
                     <Upload className="w-3.5 h-3.5" />
                     <span>Khôi phục từ file</span>
+                  </button>
+                  <button
+                    onClick={handleResetToSystemDefault}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 flex items-center gap-1.5 cursor-pointer"
+                    title="Nạp lại danh sách học sinh chuẩn từ hệ thống (Lớp 9A1, 9B...)"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Lớp chuẩn hệ thống (9A1, 9B)</span>
                   </button>
                 </div>
               </div>
