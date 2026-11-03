@@ -1,9 +1,85 @@
 import { SavedClass } from '../types';
 
-const STORAGE_KEY = 'tro_ly_lop_hoc_classes_v3';
-const ACTIVE_CLASS_KEY = 'tro_ly_lop_hoc_active_class_id_v3';
+const STORAGE_KEY = 'tro_ly_lop_hoc_classes_v4';
+const ACTIVE_CLASS_KEY = 'tro_ly_lop_hoc_active_class_id_v4';
 
 export const DEFAULT_CLASSES: SavedClass[] = [
+  {
+    id: 'class_6a1',
+    name: 'Lớp 6A1',
+    studentCount: 30,
+    students: [
+      'Hoàng Hải Anh',
+      'Ngô Quyền Anh',
+      'Vũ Quốc Anh',
+      'Nguyễn Hoàng Bảo Chúc',
+      'Tằng Văn Cương',
+      'Nguyễn Tiến Đạt',
+      'Hoàng Thị Thanh Hà',
+      'Lê Mạnh Hải',
+      'Nguyễn Xuân Hinh',
+      'Phạm Đức Hùng',
+      'Lê Thu Huyền',
+      'Hoàng Gia Hưng',
+      'Hoàng Thế Hưng',
+      'Hoàng Nhã Khanh',
+      'Đặng Kiều Linh',
+      'Vũ Đón Lộc',
+      'Lê Đức Lượng',
+      'Lê Thảo My',
+      'Lê Thị Trà My',
+      'Phạm Khánh Nga',
+      'Trạc Cắm Ngằn',
+      'Lê Mạnh Nhất',
+      'Lê Đại Phong',
+      'Hứa Danh Sơn',
+      'Lê Thị Tâm',
+      'Vũ Thị Thủy',
+      'Phạm Bảo Trâm',
+      'Hứa Thanh Tùng',
+      'Vũ Kha Tuyền',
+      'Lê Thị Vui',
+    ],
+    updatedAt: Date.now(),
+  },
+  {
+    id: 'class_6a2',
+    name: 'Lớp 6A2',
+    studentCount: 30,
+    students: [
+      'Nguyễn Hoài An',
+      'Hoàng Thế Anh',
+      'Nguyễn Tuấn Anh',
+      'Nguyễn Khương Duy',
+      'Vũ Đức Dương',
+      'Lê Tiến Đạt',
+      'Vũ Thị Thu Hằng',
+      'Hoàng Thị Hiền',
+      'Vương Đức Hiếu',
+      'Phạm Thị Thu Huyền',
+      'Hoàng Gia Hưng',
+      'Lê Thị Lan Hương',
+      'Hứa Minh Khôi',
+      'Hoàng Thị Hà Linh',
+      'Hứa Hoàng Bảo Long',
+      'Phạm Thị Hằng Nga',
+      'Lê Bảo Ngọc',
+      'Vương Thị Yến Nhi',
+      'Hoàng Đại Phong',
+      'Lê Đình Phúc',
+      'Phạm Tiến Quang',
+      'Hoàng Như Quỳnh',
+      'Trần Phi Sơn',
+      'Bùi Nguyễn Công Thành',
+      'Nguyễn Tiến Thành',
+      'Hứa Anh Thương',
+      'Lê Thị Tiền',
+      'Mã Thanh Tỉnh',
+      'Trần Duy Tuấn',
+      'Hoàng Thị Hải Yến',
+    ],
+    updatedAt: Date.now(),
+  },
   {
     id: 'class_6b',
     name: 'Lớp 6B',
@@ -46,6 +122,83 @@ export const DEFAULT_CLASSES: SavedClass[] = [
       'Phạm Huy Vũ',
       'Lê Thảo Vy',
       'Phạm Thế Vỹ',
+    ],
+    updatedAt: Date.now(),
+  },
+  {
+    id: 'class_7a1',
+    name: 'Lớp 7A1',
+    studentCount: 30,
+    students: [
+      'Lê Quang Anh',
+      'Phạm Thị Lan Anh',
+      'Phạm Bảo Chi',
+      'Hoàng Thanh Dũng',
+      'Hứa Thị Hồng Duyên',
+      'Lê Anh Đức',
+      'Lê Văn Được',
+      'Lê Thị Thúy Hằng',
+      'Trần Minh Huân',
+      'Ngô Quốc Huy',
+      'Trần Gia Khánh',
+      'Hứa Tuấn Kiệt',
+      'Choóng Vĩnh Kim',
+      'Hoàng Tường Lam',
+      'Nguyễn Sinh Lộc',
+      'Hoàng Tiến Mạnh',
+      'Đoàn Đức Nam',
+      'Hoàng Thị Tuyết Nhi',
+      'Lê Thị Bảo NgọcA 1',
+      'Ngô Tú Quyên',
+      'Vũ Tiến Thành',
+      'Hoàng Ngọc ThảoA',
+      'Hứa Như Phương Thảo',
+      'Lê Thị Hồng Thuý',
+      'Vương Ngọc Thuý',
+      'Phạm Thị Bảo Trang',
+      'Lê Quỳnh Trang',
+      'Phạm Quang Vinh',
+      'Phạm Ngọc Vượt',
+      'Phạm Thị Thảo Vy',
+    ],
+    updatedAt: Date.now(),
+  },
+  {
+    id: 'class_7a2',
+    name: 'Lớp 7A2',
+    studentCount: 31,
+    students: [
+      'Nguyễn Vân Anh',
+      'Lê Tuấn Anh',
+      'Đào Mạnh Dũng',
+      'Hứa Đặng Thùy Ánh Duyên',
+      'Bùi Hoàng Dương',
+      'Lê Thị Thùy DươngA',
+      'Trần Xuân Đại',
+      'Lê Thị Thu HàA',
+      'Nguyễn Đoàn Mai Hân',
+      'Hoàng Văn Hùng',
+      'Ôn Gia Huy',
+      'Phạm Nhật Khải',
+      'Hoàng Tuấn Kiệt',
+      'Hoàng Ngọc Lan',
+      'Hoàng Minh NhậtA',
+      'Hoàng Kim Ngân',
+      'Nguyễn Bảo NgọcA',
+      'Phạm Khải Nguyên',
+      'Nguyễn Bảo Nhi',
+      'Trần Thị Thảo NhiA',
+      'Lê Văn Quang',
+      'Phạm Duy Thành',
+      'Trần Đức ThịnhA',
+      'Vương Anh Thư',
+      'Phạm Thị Trang',
+      'Từ Thị Thu Trang',
+      'Trần Bảo Trâm',
+      'Phạm Hoàng Nam Trung',
+      'Nguyễn Quốc ViệtA',
+      'Lê Hoàng Hà Vy',
+      'Phạm Thị Ngọc Anh',
     ],
     updatedAt: Date.now(),
   },
@@ -139,91 +292,44 @@ export const DEFAULT_CLASSES: SavedClass[] = [
     ],
     updatedAt: Date.now(),
   },
-  {
-    id: 'class_8a1',
-    name: 'Lớp 8A1',
-    studentCount: 42,
-    students: [
-      'Nguyễn Tuấn Kiệt',
-      'Trần Bảo Ngọc',
-      'Lê Tấn Phát',
-      'Phạm Khánh Huyền',
-      'Võ Minh Quân',
-      'Đào Phương Trinh',
-      'Lâm Gia Bảo',
-      'Nguyễn Hải Đăng',
-      'Bùi Thị Yến',
-      'Vũ Gia Huy',
-      'Đặng Thùy Dung',
-      'Hoàng Gia Khánh',
-    ],
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'class_7b',
-    name: 'Lớp 7B',
-    studentCount: 38,
-    students: [
-      'Nguyễn Hoàng Bách',
-      'Trần Thùy Chi',
-      'Lê Gia Hân',
-      'Phạm Quang Huy',
-      'Hoàng Minh Khôi',
-      'Đỗ Diệu Linh',
-      'Vũ Gia Nguyên',
-      'Bùi Yến Nhi',
-      'Đặng Phúc Khang',
-      'Ngô Thảo Nguyên',
-      'Dương Trí Đức',
-      'Lý Khánh Vân',
-    ],
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'class_6a',
-    name: 'Lớp 6A',
-    studentCount: 40,
-    students: [
-      'Nguyễn Văn An',
-      'Trần Thị Bình',
-      'Lê Văn Cường',
-      'Phạm Thị Dung',
-      'Hoàng Văn Em',
-      'Đỗ Thị Hoa',
-      'Vũ Đình Khang',
-      'Bùi Thị Linh',
-      'Đặng Minh Long',
-      'Ngô Phương Mai',
-      'Dương Quốc Nam',
-      'Lý Thu Nga',
-      'Mai Tuấn Phong',
-      'Đinh Hải Quân',
-      'Trịnh Như Quỳnh',
-      'Hồ Thanh Sơn',
-      'Nguyễn Ngọc Ánh',
-      'Trần Quốc Bảo',
-      'Lê Minh Châu',
-      'Phạm Đức Dũng',
-    ],
-    updatedAt: Date.now(),
-  },
 ];
 
 export const classStorage = {
   getClasses: (): SavedClass[] => {
     if (typeof window === 'undefined') return DEFAULT_CLASSES;
     try {
-      const data = localStorage.getItem(STORAGE_KEY);
+      const data = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('tro_ly_lop_hoc_classes_v3');
       if (!data) {
-        // Initialize with default sample classes
         localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CLASSES));
         return DEFAULT_CLASSES;
       }
-      const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+      let parsed = JSON.parse(data) as SavedClass[];
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CLASSES));
+        return DEFAULT_CLASSES;
       }
-      return DEFAULT_CLASSES;
+
+      // Merge new default classes that are not yet in parsed list ("lớp nào có rồi thì không cần add nữa")
+      let hasNew = false;
+      DEFAULT_CLASSES.forEach((defCls) => {
+        const exists = parsed.some(
+          (c) => c.name.toLowerCase().replace(/\s+/g, '') === defCls.name.toLowerCase().replace(/\s+/g, '')
+        );
+        if (!exists) {
+          parsed.push(defCls);
+          hasNew = true;
+        }
+      });
+
+      // Remove placeholder sample 6A if 6A1 exists
+      parsed = parsed.filter(
+        (c) => !(c.id === 'class_6a' && c.name === 'Lớp 6A' && parsed.some((p) => p.name === 'Lớp 6A1'))
+      );
+
+      if (hasNew || localStorage.getItem(STORAGE_KEY) !== JSON.stringify(parsed)) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      }
+      return parsed;
     } catch {
       return DEFAULT_CLASSES;
     }
