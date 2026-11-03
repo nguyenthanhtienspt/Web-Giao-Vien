@@ -418,4 +418,167 @@ export const soundManager = {
       // Ignore
     }
   },
+
+  // F1 Racing Engine Rev sound
+  playEngineRev: () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      osc.type = 'sawtooth';
+      const baseFreq = 95 + Math.random() * 30;
+      osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.8, ctx.currentTime + 0.22);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, ctx.currentTime + 0.4);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(450, ctx.currentTime);
+      filter.frequency.exponentialRampToValueAtTime(1400, ctx.currentTime + 0.22);
+      filter.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.4);
+
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.42);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.43);
+    } catch {
+      // Ignore
+    }
+  },
+
+  // Tire screech / drift sound
+  playTireScreech: () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const bufferSize = Math.floor(ctx.sampleRate * 0.2);
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(2200, ctx.currentTime);
+      filter.frequency.linearRampToValueAtTime(3200, ctx.currentTime + 0.1);
+      filter.frequency.linearRampToValueAtTime(1800, ctx.currentTime + 0.2);
+      filter.Q.setValueAtTime(6.0, ctx.currentTime);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.14, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      noise.start();
+    } catch {
+      // Ignore
+    }
+  },
+
+  // Dragon Boat Drum Beat (thùng... thùng...)
+  playBoatDrum: () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(130, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(45, ctx.currentTime + 0.18);
+
+      gain.gain.setValueAtTime(0.35, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.23);
+    } catch {
+      // Ignore
+    }
+  },
+
+  // Magic Card shimmer / arpeggio
+  playMagicShimmer: () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const notes = [587.33, 739.99, 880, 1174.66, 1479.98, 1760]; // D5, F#5, A5, D6, F#6, A6
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const startTime = ctx.currentTime + idx * 0.06;
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, startTime);
+
+        gain.gain.setValueAtTime(0.18, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(startTime);
+        osc.stop(startTime + 0.42);
+      });
+    } catch {
+      // Ignore
+    }
+  },
+
+  // Quick card flip swoosh sound
+  playCardFlip: () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(350, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.06);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1200, ctx.currentTime);
+
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.09);
+    } catch {
+      // Ignore
+    }
+  },
 };

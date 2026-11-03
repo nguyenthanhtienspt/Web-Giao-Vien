@@ -5,8 +5,11 @@ import { soundManager } from '../services/sound';
 import { SavedClass } from '../types';
 import { DuckRaceGame } from './DuckRaceGame';
 import { MarbleDropGame } from './MarbleDropGame';
+import { CarRaceGame } from './CarRaceGame';
+import { BoatRaceGame } from './BoatRaceGame';
+import { MagicCardGame } from './MagicCardGame';
 
-export type PickerGameType = 'wheel' | 'duck' | 'marble';
+export type PickerGameType = 'wheel' | 'duck' | 'marble' | 'car' | 'boat' | 'magic';
 
 interface RandomPickerTabProps {
   studentCount: number;
@@ -148,8 +151,25 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
           ? 'Đua vịt đại chiến (10 giây)'
           : pickerGameType === 'marble'
             ? 'Thả viên bi Plinko (10 giây)'
-            : 'Quay số ngẫu nhiên',
-      icon: pickerGameType === 'duck' ? '🦆' : pickerGameType === 'marble' ? '🔮' : '🎰',
+            : pickerGameType === 'car'
+              ? 'Đua siêu xe F1 Turbo (10 giây)'
+              : pickerGameType === 'boat'
+                ? 'Đua thuyền rồng vượt sóng (10 giây)'
+                : pickerGameType === 'magic'
+                  ? 'Rút thăm bài ma thuật'
+                  : 'Quay số ngẫu nhiên',
+      icon:
+        pickerGameType === 'duck'
+          ? '🦆'
+          : pickerGameType === 'marble'
+            ? '🔮'
+            : pickerGameType === 'car'
+              ? '🏎️'
+              : pickerGameType === 'boat'
+                ? '🚣'
+                : pickerGameType === 'magic'
+                  ? '🃏'
+                  : '🎰',
       winners: resolvedWinners,
     });
   };
@@ -454,9 +474,57 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               }`}
             >
               <span>🔮</span>
-              <span>THẢ BI PLINKO (10 GIÂY)</span>
+              <span>THẢ BI PLINKO</span>
               <span className="text-[10px] bg-purple-400/30 text-white px-1.5 py-0.2 rounded-full uppercase font-black">
                 10s
+              </span>
+            </button>
+
+            {/* 4. Car Race (10 seconds) */}
+            <button
+              onClick={() => setPickerGameType('car')}
+              className={`px-3.5 sm:px-4 py-2 rounded-xl font-display font-black text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+                pickerGameType === 'car'
+                  ? 'bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 text-white shadow-md shadow-red-500/30 scale-[1.02]'
+                  : 'text-red-300 hover:text-red-200 hover:bg-red-950/30'
+              }`}
+            >
+              <span>🏎️</span>
+              <span>ĐUA XE F1</span>
+              <span className="text-[10px] bg-red-400/30 text-white px-1.5 py-0.2 rounded-full uppercase font-black">
+                10s
+              </span>
+            </button>
+
+            {/* 5. Boat Race (10 seconds) */}
+            <button
+              onClick={() => setPickerGameType('boat')}
+              className={`px-3.5 sm:px-4 py-2 rounded-xl font-display font-black text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+                pickerGameType === 'boat'
+                  ? 'bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 text-white shadow-md shadow-cyan-500/30 scale-[1.02]'
+                  : 'text-cyan-300 hover:text-cyan-200 hover:bg-cyan-950/30'
+              }`}
+            >
+              <span>🚣</span>
+              <span>ĐUA THUYỀN RỒNG</span>
+              <span className="text-[10px] bg-cyan-400/30 text-white px-1.5 py-0.2 rounded-full uppercase font-black">
+                10s
+              </span>
+            </button>
+
+            {/* 6. Magic Card Draw */}
+            <button
+              onClick={() => setPickerGameType('magic')}
+              className={`px-3.5 sm:px-4 py-2 rounded-xl font-display font-black text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+                pickerGameType === 'magic'
+                  ? 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 text-white shadow-md shadow-purple-500/30 scale-[1.02]'
+                  : 'text-purple-300 hover:text-purple-200 hover:bg-purple-950/30'
+              }`}
+            >
+              <span>🃏</span>
+              <span>BÀI MA THUẬT</span>
+              <span className="text-[10px] bg-purple-400/30 text-white px-1.5 py-0.2 rounded-full uppercase font-black">
+                LẬT 3D
               </span>
             </button>
           </div>
@@ -736,9 +804,42 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
             />
           </div>
         ) : pickerGameType === 'marble' ? (
-          /* CASE D2: MARBLE DROP GAME (30 SECONDS) */
+          /* CASE D2: MARBLE DROP GAME (10 SECONDS) */
           <div className="w-full">
             <MarbleDropGame
+              candidates={pickerMode === 'numbers' ? remainingNumbers : remainingCustomItems}
+              batchCount={batchCount}
+              isLightMode={isLightMode}
+              studentNames={customList}
+              onSelectWinners={handleWinnersFromMiniGame}
+            />
+          </div>
+        ) : pickerGameType === 'car' ? (
+          /* CASE D3: F1 CAR RACE GAME (10 SECONDS) */
+          <div className="w-full">
+            <CarRaceGame
+              candidates={pickerMode === 'numbers' ? remainingNumbers : remainingCustomItems}
+              batchCount={batchCount}
+              isLightMode={isLightMode}
+              studentNames={customList}
+              onSelectWinners={handleWinnersFromMiniGame}
+            />
+          </div>
+        ) : pickerGameType === 'boat' ? (
+          /* CASE D4: DRAGON BOAT RACE GAME (10 SECONDS) */
+          <div className="w-full">
+            <BoatRaceGame
+              candidates={pickerMode === 'numbers' ? remainingNumbers : remainingCustomItems}
+              batchCount={batchCount}
+              isLightMode={isLightMode}
+              studentNames={customList}
+              onSelectWinners={handleWinnersFromMiniGame}
+            />
+          </div>
+        ) : pickerGameType === 'magic' ? (
+          /* CASE D5: MAGIC CARDS GAME */
+          <div className="w-full">
+            <MagicCardGame
               candidates={pickerMode === 'numbers' ? remainingNumbers : remainingCustomItems}
               batchCount={batchCount}
               isLightMode={isLightMode}
