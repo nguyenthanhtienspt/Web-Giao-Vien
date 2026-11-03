@@ -134,8 +134,6 @@ export default function App() {
     >
       {/* Top Header */}
       <Header
-        studentCount={studentCount}
-        setStudentCount={setStudentCount}
         isSoundEnabled={isSoundEnabled}
         setIsSoundEnabled={setIsSoundEnabled}
         isLightMode={isLightMode}

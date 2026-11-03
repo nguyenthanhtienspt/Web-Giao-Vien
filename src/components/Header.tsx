@@ -1,11 +1,11 @@
 import React from 'react';
-import { Volume2, VolumeX, Maximize2, Minimize2, Sun, Moon, Users, School, FolderOpen } from 'lucide-react';
+import { Volume2, VolumeX, Maximize2, Minimize2, Sun, Moon, School, FolderOpen } from 'lucide-react';
 import { soundManager } from '../services/sound';
 import { SavedClass } from '../types';
 
 interface HeaderProps {
-  studentCount: number;
-  setStudentCount: (count: number) => void;
+  studentCount?: number;
+  setStudentCount?: (count: number) => void;
   isSoundEnabled: boolean;
   setIsSoundEnabled: (enabled: boolean) => void;
   isLightMode: boolean;
@@ -19,8 +19,6 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  studentCount,
-  setStudentCount,
   isSoundEnabled,
   setIsSoundEnabled,
   isLightMode,
@@ -35,11 +33,6 @@ export const Header: React.FC<HeaderProps> = ({
   const handleToggleSound = () => {
     const newState = soundManager.toggle();
     setIsSoundEnabled(newState);
-  };
-
-  const handleAdjustCount = (delta: number) => {
-    const next = Math.max(5, Math.min(60, studentCount + delta));
-    setStudentCount(next);
   };
 
   return (
@@ -104,52 +97,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <FolderOpen className="w-4 h-4" />
             </button>
-          </div>
-
-          {/* Class size selector */}
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border ${
-            isLightMode 
-              ? 'bg-slate-50 border-slate-300 text-slate-800' 
-              : 'bg-slate-800/80 border-slate-700 text-slate-200'
-          }`}>
-            <Users className="w-4 h-4 text-indigo-400" />
-            <span className="text-xs sm:text-sm font-semibold">Sĩ số:</span>
-            
-            <button
-              onClick={() => handleAdjustCount(-1)}
-              className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-sm font-bold transition-transform active:scale-95 cursor-pointer"
-              title="Giảm 1 học sinh"
-            >
-              −
-            </button>
-            <span className="w-8 text-center font-black text-base sm:text-lg text-indigo-500 tabular-nums">
-              {studentCount}
-            </span>
-            <button
-              onClick={() => handleAdjustCount(1)}
-              className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-sm font-bold transition-transform active:scale-95 cursor-pointer"
-              title="Tăng 1 học sinh"
-            >
-              +
-            </button>
-
-            {/* Quick preset selector */}
-            <select
-              value={studentCount}
-              onChange={(e) => setStudentCount(Number(e.target.value))}
-              aria-label="Chọn sĩ số nhanh"
-              className={`ml-1 text-xs font-semibold rounded-lg px-2 py-1 outline-none cursor-pointer ${
-                isLightMode 
-                  ? 'bg-white border border-slate-300 text-slate-700' 
-                  : 'bg-slate-900 border border-slate-700 text-slate-300'
-              }`}
-            >
-              {[30, 35, 38, 40, 42, 45, 48, 50].map((num) => (
-                <option key={num} value={num}>
-                  {num} HS
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Quick Teacher Soundboard for classroom interaction */}
