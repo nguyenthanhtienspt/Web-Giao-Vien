@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import confetti from 'canvas-confetti';
-import { Play, RotateCcw, Volume2, Trophy, Sparkles, Wand2, Eye, Flame } from 'lucide-react';
+import { Play, RotateCcw, Volume2, Trophy, Sparkles, Wand2, Eye, Flame, Maximize2, Minimize2 } from 'lucide-react';
 import { soundManager } from '../services/sound';
 
 interface Contestant {
@@ -23,6 +23,8 @@ interface MagicCardGameProps {
   studentNames?: string[];
   onSelectWinners: (winners: (string | number)[]) => void;
   onClose?: () => void;
+  isGameFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 const MAGIC_ELEMENTS = [
@@ -42,6 +44,8 @@ export const MagicCardGame: React.FC<MagicCardGameProps> = ({
   isLightMode,
   studentNames = [],
   onSelectWinners,
+  isGameFullscreen = false,
+  onToggleFullscreen,
 }) => {
   const [maxCardsOption, setMaxCardsOption] = useState<'all' | '12' | '20'>(
     candidates.length <= 16 ? 'all' : '20'
@@ -199,6 +203,22 @@ export const MagicCardGame: React.FC<MagicCardGameProps> = ({
           >
             <Volume2 className="w-4 h-4" />
           </button>
+
+          {/* Fullscreen Zoom Toggle Button */}
+          {onToggleFullscreen && (
+            <button
+              onClick={onToggleFullscreen}
+              className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                isGameFullscreen
+                  ? 'bg-purple-600 text-white border-purple-400'
+                  : 'bg-slate-800 hover:bg-slate-700 text-purple-300 border-slate-700'
+              }`}
+              title={isGameFullscreen ? 'Thu nhỏ lại (Esc)' : 'Phóng to toàn màn hình máy chiếu (Phím F)'}
+            >
+              {isGameFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              <span className="hidden sm:inline">{isGameFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'}</span>
+            </button>
+          )}
 
           {gameState === 'ready' && (
             <button

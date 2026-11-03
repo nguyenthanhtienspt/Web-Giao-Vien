@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import confetti from 'canvas-confetti';
-import { Play, RotateCcw, Volume2, Trophy, Clock, Sparkles, Zap, ShieldAlert } from 'lucide-react';
+import { Play, RotateCcw, Volume2, Trophy, Clock, Sparkles, Zap, ShieldAlert, Maximize2, Minimize2 } from 'lucide-react';
 import { soundManager } from '../services/sound';
 
 interface Contestant {
@@ -18,6 +18,8 @@ interface MarbleDropGameProps {
   studentNames?: string[];
   onSelectWinners: (winners: (string | number)[]) => void;
   onClose?: () => void;
+  isGameFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 const MARBLE_COLORS = [
@@ -70,6 +72,8 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
   isLightMode,
   studentNames = [],
   onSelectWinners,
+  isGameFullscreen = false,
+  onToggleFullscreen,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -729,7 +733,7 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-display font-black text-lg sm:text-xl text-indigo-400">
-                THẢ VIÊN BI PLINKO (10 GIÂY)
+                THẢ VIÊN BI PLINKO
               </h3>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                 {contestants.length} viên bi
@@ -741,8 +745,8 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
           </div>
         </div>
 
-        {/* Countdown Clock */}
-        <div className="flex items-center gap-3">
+        {/* Countdown Clock & Controls */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <div className={`px-4 py-2 rounded-2xl border flex items-center gap-2.5 font-display transition-all ${
             gameState === 'dropping'
               ? secondsRemaining <= 3
@@ -760,6 +764,22 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Fullscreen Zoom Toggle Button */}
+          {onToggleFullscreen && (
+            <button
+              onClick={onToggleFullscreen}
+              className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                isGameFullscreen
+                  ? 'bg-indigo-500 text-white border-indigo-400'
+                  : 'bg-slate-800 hover:bg-slate-700 text-indigo-300 border-slate-700'
+              }`}
+              title={isGameFullscreen ? 'Thu nhỏ lại (Esc)' : 'Phóng to toàn màn hình máy chiếu (Phím F)'}
+            >
+              {isGameFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              <span className="hidden sm:inline">{isGameFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'}</span>
+            </button>
+          )}
 
           {/* Action buttons */}
           {gameState === 'ready' && (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { RotateCcw, Shuffle, Sparkles, CheckCircle2, Layers, FileText, Hash, Edit3, X, Check, Trash2, CheckSquare, Square, CheckCheck, RefreshCw, AlertCircle, Play, Trophy } from 'lucide-react';
+import { RotateCcw, Shuffle, Sparkles, CheckCircle2, Layers, FileText, Hash, Edit3, X, Check, Trash2, CheckSquare, Square, CheckCheck, RefreshCw, AlertCircle, Play, Trophy, Maximize2, Minimize2 } from 'lucide-react';
 import { soundManager } from '../services/sound';
 import { SavedClass } from '../types';
 import { DuckRaceGame } from './DuckRaceGame';
@@ -87,6 +87,23 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
   const [batchCount, setBatchCount] = useState<1 | 2>(1); // pick 1 or 2 at once
   const [latestPicksNumbers, setLatestPicksNumbers] = useState<number[]>([]);
   const rollIntervalRef = useRef<number | null>(null);
+
+  // Fullscreen Theater Mode State for Games
+  const [isGameFullscreen, setIsGameFullscreen] = useState(false);
+
+  const toggleGameFullscreen = () => {
+    if (!isGameFullscreen) {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+      setIsGameFullscreen(true);
+    } else {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+      setIsGameFullscreen(false);
+    }
+  };
 
   // Winner announcement notification modal state
   interface WinnerNotificationData {
@@ -214,10 +231,23 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
     setEditorText(customList.join('\n'));
   }, [customList]);
 
-  // Keyboard shortcut: Spacebar to trigger roll when this tab is active
+  // Keyboard shortcut: Spacebar to trigger roll, F to toggle fullscreen, Esc to exit
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleGameFullscreen();
+        return;
+      }
+      if (e.key === 'Escape' && isGameFullscreen) {
+        e.preventDefault();
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+        setIsGameFullscreen(false);
         return;
       }
       if (e.code === 'Space' && !isRolling) {
@@ -231,9 +261,19 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
       }
     };
 
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsGameFullscreen(false);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isRolling, pickerMode, isAllNumbersPicked, isAllCustomPicked, remainingNumbers, remainingCustomItems, batchCount]);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isRolling, pickerMode, isAllNumbersPicked, isAllCustomPicked, remainingNumbers, remainingCustomItems, batchCount, isGameFullscreen]);
 
   const fireConfetti = () => {
     try {
@@ -512,6 +552,20 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               <span>🃏</span>
               <span>BÀI MA THUẬT</span>
             </button>
+
+            {/* Fullscreen Button */}
+            <button
+              onClick={toggleGameFullscreen}
+              className={`px-3.5 sm:px-4 py-2 rounded-xl font-display font-black text-xs sm:text-sm flex items-center gap-1.5 transition-all cursor-pointer ${
+                isGameFullscreen
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30'
+                  : 'bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 hover:text-white'
+              }`}
+              title={isGameFullscreen ? 'Thu nhỏ lại (Esc)' : 'Phóng to toàn màn hình máy chiếu (Phím F)'}
+            >
+              {isGameFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4 text-indigo-300" />}
+              <span>{isGameFullscreen ? 'Thu nhỏ (Esc)' : 'Toàn màn hình (F)'}</span>
+            </button>
           </div>
         </div>
 
@@ -710,12 +764,113 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
       )}
 
       {/* Main Stage: Huge Rolling Display & Action Button */}
-      <div className={`rounded-3xl border p-6 sm:p-10 text-center flex flex-col items-center justify-center relative overflow-hidden transition-all ${
-        isLightMode
-          ? 'bg-gradient-to-b from-indigo-50/60 via-white to-slate-50 border-indigo-200/80 shadow-lg'
-          : 'bg-gradient-to-b from-slate-900 via-indigo-950/30 to-slate-900 border-indigo-500/30 shadow-2xl shadow-indigo-950/50'
-      }`}>
+      <div className={
+        isGameFullscreen
+          ? 'fixed inset-0 z-50 bg-slate-950 p-4 sm:p-6 flex flex-col justify-start overflow-y-auto w-screen h-screen'
+          : `rounded-3xl border p-6 sm:p-10 text-center flex flex-col items-center justify-center relative overflow-hidden transition-all ${
+              isLightMode
+                ? 'bg-gradient-to-b from-indigo-50/60 via-white to-slate-50 border-indigo-200/80 shadow-lg'
+                : 'bg-gradient-to-b from-slate-900 via-indigo-950/30 to-slate-900 border-indigo-500/30 shadow-2xl shadow-indigo-950/50'
+            }`
+      }>
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Sticky Fullscreen Navigation Header when isGameFullscreen is active */}
+        {isGameFullscreen && (
+          <div className="w-full sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 mb-4 bg-slate-900/95 backdrop-blur-md border border-slate-800 px-4 py-3 rounded-2xl shadow-2xl">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-black uppercase text-amber-400 flex items-center gap-1.5 mr-1">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>TRÒ CHƠI:</span>
+              </span>
+              <button
+                onClick={() => setPickerGameType('wheel')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                  pickerGameType === 'wheel' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <span>🎰</span>
+                <span>Quay số</span>
+              </button>
+              <button
+                onClick={() => setPickerGameType('duck')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                  pickerGameType === 'duck' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <span>🦆</span>
+                <span>Đua vịt</span>
+              </button>
+              <button
+                onClick={() => setPickerGameType('marble')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                  pickerGameType === 'marble' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <span>🔮</span>
+                <span>Thả bi</span>
+              </button>
+              <button
+                onClick={() => setPickerGameType('car')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                  pickerGameType === 'car' ? 'bg-red-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <span>🏎️</span>
+                <span>Đua F1</span>
+              </button>
+              <button
+                onClick={() => setPickerGameType('boat')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                  pickerGameType === 'boat' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <span>🚣</span>
+                <span>Thuyền rồng</span>
+              </button>
+              <button
+                onClick={() => setPickerGameType('magic')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                  pickerGameType === 'magic' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <span>🃏</span>
+                <span>Bài ma thuật</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-xl text-xs border border-slate-700">
+                <span className="text-slate-400">Số lượng:</span>
+                <button
+                  onClick={() => setBatchCount(1)}
+                  className={`px-2 py-0.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                    batchCount === 1 ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  1 HS
+                </button>
+                <button
+                  onClick={() => setBatchCount(2)}
+                  className={`px-2 py-0.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                    batchCount === 2 ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  2 HS
+                </button>
+              </div>
+
+              <button
+                onClick={toggleGameFullscreen}
+                className="px-4 py-2 rounded-xl font-display font-black text-xs sm:text-sm bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 shadow-lg shadow-rose-600/30 transition-all cursor-pointer active:scale-95"
+                title="Thu nhỏ màn hình (Phím Esc hoặc F)"
+              >
+                <Minimize2 className="w-4 h-4" />
+                <span>Thu nhỏ (Esc)</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* --- CASE A: NO ITEMS SELECTED / CHECKED --- */}
         {(pickerMode === 'numbers' ? selectedNumbers.length === 0 : selectedCustomItems.length === 0) ? (
@@ -786,10 +941,12 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               isLightMode={isLightMode}
               studentNames={customList}
               onSelectWinners={handleWinnersFromMiniGame}
+              isGameFullscreen={isGameFullscreen}
+              onToggleFullscreen={toggleGameFullscreen}
             />
           </div>
         ) : pickerGameType === 'marble' ? (
-          /* CASE D2: MARBLE DROP GAME (10 SECONDS) */
+          /* CASE D2: MARBLE DROP GAME */
           <div className="w-full">
             <MarbleDropGame
               candidates={pickerMode === 'numbers' ? remainingNumbers : remainingCustomItems}
@@ -797,10 +954,12 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               isLightMode={isLightMode}
               studentNames={customList}
               onSelectWinners={handleWinnersFromMiniGame}
+              isGameFullscreen={isGameFullscreen}
+              onToggleFullscreen={toggleGameFullscreen}
             />
           </div>
         ) : pickerGameType === 'car' ? (
-          /* CASE D3: F1 CAR RACE GAME (10 SECONDS) */
+          /* CASE D3: F1 CAR RACE GAME */
           <div className="w-full">
             <CarRaceGame
               candidates={pickerMode === 'numbers' ? remainingNumbers : remainingCustomItems}
@@ -808,10 +967,12 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               isLightMode={isLightMode}
               studentNames={customList}
               onSelectWinners={handleWinnersFromMiniGame}
+              isGameFullscreen={isGameFullscreen}
+              onToggleFullscreen={toggleGameFullscreen}
             />
           </div>
         ) : pickerGameType === 'boat' ? (
-          /* CASE D4: DRAGON BOAT RACE GAME (10 SECONDS) */
+          /* CASE D4: DRAGON BOAT RACE GAME */
           <div className="w-full">
             <BoatRaceGame
               candidates={pickerMode === 'numbers' ? remainingNumbers : remainingCustomItems}
@@ -819,6 +980,8 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               isLightMode={isLightMode}
               studentNames={customList}
               onSelectWinners={handleWinnersFromMiniGame}
+              isGameFullscreen={isGameFullscreen}
+              onToggleFullscreen={toggleGameFullscreen}
             />
           </div>
         ) : pickerGameType === 'magic' ? (
@@ -830,11 +993,29 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               isLightMode={isLightMode}
               studentNames={customList}
               onSelectWinners={handleWinnersFromMiniGame}
+              isGameFullscreen={isGameFullscreen}
+              onToggleFullscreen={toggleGameFullscreen}
             />
           </div>
         ) : (
-          /* CASE D3: CLASSIC WHEEL / DIGITAL ROLLING */
+          /* CASE D6: CLASSIC WHEEL / DIGITAL ROLLING */
           <div className="w-full flex flex-col items-center">
+            {/* Quick Fullscreen button for Classic Wheel */}
+            <div className="w-full flex justify-end mb-2">
+              <button
+                onClick={toggleGameFullscreen}
+                className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                  isGameFullscreen
+                    ? 'bg-indigo-500 text-white border-indigo-400'
+                    : 'bg-slate-800 hover:bg-slate-700 text-indigo-300 border-slate-700'
+                }`}
+                title={isGameFullscreen ? 'Thu nhỏ lại (Esc)' : 'Phóng to toàn màn hình máy chiếu (Phím F)'}
+              >
+                {isGameFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                <span className="hidden sm:inline">{isGameFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'}</span>
+              </button>
+            </div>
+
             <span className="text-sm sm:text-base font-bold tracking-widest uppercase text-indigo-400 mb-2">
               {isRolling
                 ? 'ĐANG QUAY NGẪU NHIÊN...'

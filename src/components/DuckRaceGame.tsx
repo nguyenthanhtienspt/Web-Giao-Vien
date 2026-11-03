@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import confetti from 'canvas-confetti';
-import { Play, RotateCcw, Volume2, Trophy, Clock, Zap, Flag, Sparkles, UserCheck } from 'lucide-react';
+import { Play, RotateCcw, Volume2, Trophy, Clock, Zap, Flag, Sparkles, UserCheck, Maximize2, Minimize2 } from 'lucide-react';
 import { soundManager } from '../services/sound';
 
 interface Contestant {
@@ -18,6 +18,8 @@ interface DuckRaceGameProps {
   studentNames?: string[];
   onSelectWinners: (winners: (string | number)[]) => void;
   onClose?: () => void;
+  isGameFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 const DUCK_COLORS = [
@@ -57,6 +59,8 @@ export const DuckRaceGame: React.FC<DuckRaceGameProps> = ({
   isLightMode,
   studentNames = [],
   onSelectWinners,
+  isGameFullscreen = false,
+  onToggleFullscreen,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -605,6 +609,22 @@ export const DuckRaceGame: React.FC<DuckRaceGameProps> = ({
             <Volume2 className="w-4 h-4" />
             <span className="hidden sm:inline">Cạc Cạc!</span>
           </button>
+
+          {/* Fullscreen Zoom Toggle Button */}
+          {onToggleFullscreen && (
+            <button
+              onClick={onToggleFullscreen}
+              className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                isGameFullscreen
+                  ? 'bg-amber-500 text-slate-950 border-amber-400'
+                  : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700'
+              }`}
+              title={isGameFullscreen ? 'Thu nhỏ lại (Esc)' : 'Phóng to toàn màn hình máy chiếu (Phím F)'}
+            >
+              {isGameFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              <span className="hidden sm:inline">{isGameFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'}</span>
+            </button>
+          )}
 
           {/* Action buttons */}
           {raceState === 'ready' && (
