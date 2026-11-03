@@ -581,4 +581,103 @@ export const soundManager = {
       // Ignore
     }
   },
+
+  // Grand applause / clapping burst for classroom recognition
+  playApplause: () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+      for (let i = 0; i < 22; i++) {
+        const timeOffset = Math.random() * 1.1;
+        const duration = 0.04 + Math.random() * 0.04;
+        const bufferSize = Math.floor(ctx.sampleRate * duration);
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let j = 0; j < bufferSize; j++) {
+          data[j] = (Math.random() * 2 - 1) * Math.exp(-j / (bufferSize * 0.35));
+        }
+
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(800 + Math.random() * 1200, now + timeOffset);
+        filter.Q.setValueAtTime(1.5, now + timeOffset);
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.2, now + timeOffset);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + timeOffset + duration);
+
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+
+        source.start(now + timeOffset);
+        source.stop(now + timeOffset + duration + 0.01);
+      }
+    } catch {
+      // Ignore
+    }
+  },
+
+  // Sparkling pleasant "Ting ting" for correct answer
+  playCorrectChime: () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const pitches = [880, 1318.51, 1760]; // A5, E6, A6
+      pitches.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const startTime = ctx.currentTime + idx * 0.08;
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, startTime);
+
+        gain.gain.setValueAtTime(0.25, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.45);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(startTime);
+        osc.stop(startTime + 0.5);
+      });
+    } catch {
+      // Ignore
+    }
+  },
+
+  // Encouraging warm chime for "Try again / Gần đúng"
+  playTryAgain: () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc.frequency.exponentialRampToValueAtTime(392, ctx.currentTime + 0.25); // G4
+
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    } catch {
+      // Ignore
+    }
+  },
 };

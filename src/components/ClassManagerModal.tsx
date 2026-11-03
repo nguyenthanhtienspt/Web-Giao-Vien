@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { X, Plus, Trash2, Edit2, Check, Download, Upload, School, Users, CheckCircle2, Copy } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Plus, Trash2, Edit2, Check, Download, Upload, School, Users, CheckCircle2, Copy, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { SavedClass } from '../types';
 import { classStorage } from '../services/classStorage';
 
@@ -27,6 +28,106 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
   const [formCount, setFormCount] = useState<number>(40);
   const [formStudentsText, setFormStudentsText] = useState<string>('');
   const [copiedExport, setCopiedExport] = useState<boolean>(false);
+  const excelInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Excel (.xlsx, .xls, .csv) parser
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: 'array' });
+      const sheetName = wb.SheetNames[0];
+      const sheet = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, { header: 1 });
+
+      let detectedClassName = '';
+      for (let r = 0; r < Math.min(rows.length, 10); r++) {
+        const rowStr = (rows[r] || []).join(' ');
+        const match = rowStr.match(/LỚP\s+([0-9]+[a-zA-Z0-9]*)/i);
+        if (match) {
+          detectedClassName = 'Lớp ' + match[1].toUpperCase();
+          break;
+        }
+      }
+      if (!detectedClassName) {
+        detectedClassName = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+      }
+
+      let headerRowIdx = -1;
+      let nameColIdx = -1;
+      let hoDemColIdx = -1;
+      let tenColIdx = -1;
+
+      for (let r = 0; r < Math.min(rows.length, 25); r++) {
+        const row = rows[r] || [];
+        for (let c = 0; c < row.length; c++) {
+          const val = String(row[c] || '').trim().toLowerCase();
+          if (val.includes('họ tên') || val.includes('họ và tên') || val === 'tên học sinh' || val === 'học sinh') {
+            headerRowIdx = r;
+            nameColIdx = c;
+            break;
+          }
+          if (val.includes('họ đệm') || val === 'họ') {
+            hoDemColIdx = c;
+          }
+          if (val === 'tên') {
+            tenColIdx = c;
+          }
+        }
+        if (nameColIdx !== -1) break;
+        if (hoDemColIdx !== -1 && tenColIdx !== -1) {
+          headerRowIdx = r;
+          break;
+        }
+      }
+
+      const students: string[] = [];
+      const startRow = headerRowIdx !== -1 ? headerRowIdx + 1 : 0;
+
+      for (let r = startRow; r < rows.length; r++) {
+        const row = rows[r] || [];
+        let name = '';
+        if (nameColIdx !== -1) {
+          name = String(row[nameColIdx] || '').trim();
+        } else if (hoDemColIdx !== -1 && tenColIdx !== -1) {
+          const ho = String(row[hoDemColIdx] || '').trim();
+          const ten = String(row[tenColIdx] || '').trim();
+          name = (ho + ' ' + ten).trim();
+        }
+        if (
+          name &&
+          name.length >= 2 &&
+          !/^\d+$/.test(name) &&
+          !name.toLowerCase().includes('họ tên') &&
+          !name.toLowerCase().includes('tổng số')
+        ) {
+          students.push(name);
+        }
+      }
+
+      if (students.length === 0) {
+        alert('Không tìm thấy cột Họ và Tên trong file Excel! Thầy vui lòng kiểm tra lại file.');
+        return;
+      }
+
+      // Automatically fill the edit form with the parsed class data
+      setIsEditing(true);
+      setEditingId(null);
+      setFormName(detectedClassName);
+      setFormCount(students.length);
+      setFormStudentsText(students.join('\n'));
+      alert(`Đã đọc thành công ${students.length} học sinh từ file "${file.name}"! Thầy hãy kiểm tra và nhấn "Thêm lớp mới" nhé.`);
+    } catch (err) {
+      console.error('Lỗi khi đọc file Excel:', err);
+      alert('Không thể đọc file Excel này. Vui lòng kiểm tra file định dạng .xlsx, .xls hoặc .csv!');
+    } finally {
+      if (excelInputRef.current) {
+        excelInputRef.current.value = '';
+      }
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -228,13 +329,24 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
                   <label className="text-xs font-bold text-slate-400">
                     Danh sách tên học sinh (Mỗi dòng 1 em - có thể để trống nếu chỉ dùng số 1–{formCount}):
                   </label>
-                  <span className="text-xs font-mono text-indigo-400">
-                    {formStudentsText.split('\n').filter((s) => s.trim().length > 0).length} tên
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => excelInputRef.current?.click()}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 cursor-pointer font-bold"
+                      title="Tự động nạp tên học sinh từ file Excel"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Nạp từ file Excel</span>
+                    </button>
+                    <span className="text-xs font-mono text-indigo-400">
+                      {formStudentsText.split('\n').filter((s) => s.trim().length > 0).length} tên
+                    </span>
+                  </div>
                 </div>
                 <textarea
                   rows={8}
@@ -269,17 +381,27 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
           ) : (
             /* --- CLASS LIST OVERVIEW --- */
             <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   CÁC LỚP HỌC ĐÃ LƯU TRÊN TRÌNH DUYỆT ({classes.length} LỚP)
                 </span>
-                <button
-                  onClick={handleOpenAdd}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-black flex items-center gap-1.5 shadow transition-all cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Thêm lớp mới</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => excelInputRef.current?.click()}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-black flex items-center gap-1.5 shadow transition-all cursor-pointer active:scale-95"
+                    title="Tải lên file Excel (.xlsx, .xls) danh sách học sinh"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>Nhập từ Excel (.xlsx)</span>
+                  </button>
+                  <button
+                    onClick={handleOpenAdd}
+                    className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-black flex items-center gap-1.5 shadow transition-all cursor-pointer active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Thêm lớp mới</span>
+                  </button>
+                </div>
               </div>
 
               {/* Grid of Classes */}
@@ -408,6 +530,15 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
             </div>
           )}
         </div>
+
+        {/* Hidden Excel File Input */}
+        <input
+          type="file"
+          ref={excelInputRef}
+          accept=".xlsx,.xls,.csv"
+          className="hidden"
+          onChange={handleExcelUpload}
+        />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, Plus, Bell, Volume2, Sparkles, AlertTriangle } from 'lucide-react';
+import { Play, Pause, RotateCcw, Plus, Bell, Volume2, Sparkles, AlertTriangle, Maximize2, Minimize2 } from 'lucide-react';
 import { soundManager } from '../services/sound';
 
 interface CountdownTimerTabProps {
@@ -13,11 +13,37 @@ export const CountdownTimerTab: React.FC<CountdownTimerTabProps> = ({ isLightMod
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isTimeUp, setIsTimeUp] = useState<boolean>(false);
   const [tickAudioEnabled, setTickAudioEnabled] = useState<boolean>(true);
+  const [isTimerFullscreen, setIsTimerFullscreen] = useState<boolean>(false);
 
   // Custom minute input
   const [customMinutes, setCustomMinutes] = useState<number>(5);
 
   const timerRef = useRef<number | null>(null);
+
+  // Fullscreen toggle handler
+  const toggleTimerFullscreen = () => {
+    if (!isTimerFullscreen) {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+      setIsTimerFullscreen(true);
+    } else {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+      setIsTimerFullscreen(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsTimerFullscreen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   // Timer interval handling
   useEffect(() => {
@@ -53,10 +79,23 @@ export const CountdownTimerTab: React.FC<CountdownTimerTabProps> = ({ isLightMod
     };
   }, [isRunning, tickAudioEnabled]);
 
-  // Spacebar shortcut to Start / Pause when tab is active
+  // Keyboard shortcut: Spacebar to Start / Pause, F to toggle fullscreen, Esc to exit
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleTimerFullscreen();
+        return;
+      }
+      if (e.key === 'Escape' && isTimerFullscreen) {
+        e.preventDefault();
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+        setIsTimerFullscreen(false);
         return;
       }
       if (e.code === 'Space') {
@@ -67,7 +106,7 @@ export const CountdownTimerTab: React.FC<CountdownTimerTabProps> = ({ isLightMod
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isRunning, timeLeft, initialDuration]);
+  }, [isRunning, timeLeft, initialDuration, isTimerFullscreen]);
 
   const togglePlayPause = () => {
     if (isTimeUp) {
@@ -203,17 +242,80 @@ export const CountdownTimerTab: React.FC<CountdownTimerTabProps> = ({ isLightMod
             <Bell className="w-4 h-4 text-amber-400" />
             <span className="hidden sm:inline">Thử chuông</span>
           </button>
+
+          {/* Fullscreen Button */}
+          <button
+            onClick={toggleTimerFullscreen}
+            className={`px-3.5 py-1.5 rounded-xl border text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              isTimerFullscreen
+                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/30'
+                : 'bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border-indigo-500/40 hover:text-white'
+            }`}
+            title={isTimerFullscreen ? 'Thu nhỏ lại (Esc)' : 'Phóng to toàn màn hình máy chiếu (Phím F)'}
+          >
+            {isTimerFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            <span>{isTimerFullscreen ? 'Thu nhỏ (Esc)' : 'Toàn màn hình (F)'}</span>
+          </button>
         </div>
       </div>
 
       {/* Giant Projector Timer Display Stage */}
-      <div className={`rounded-3xl border p-8 sm:p-12 text-center flex flex-col items-center justify-center relative overflow-hidden transition-all ${
-        isTimeUp
-          ? 'bg-rose-950/40 border-rose-500 shadow-2xl shadow-rose-900/50 ring-8 ring-rose-500/20'
-          : isLightMode
-            ? 'bg-gradient-to-b from-white via-indigo-50/30 to-white border-indigo-200/80 shadow-lg'
-            : 'bg-gradient-to-b from-slate-900 via-indigo-950/20 to-slate-900 border-slate-800 shadow-2xl'
-      }`}>
+      <div className={
+        isTimerFullscreen
+          ? 'fixed inset-0 z-50 bg-slate-950 p-4 sm:p-8 flex flex-col justify-between items-center w-screen h-screen overflow-y-auto'
+          : `rounded-3xl border p-8 sm:p-12 text-center flex flex-col items-center justify-center relative overflow-hidden transition-all ${
+              isTimeUp
+                ? 'bg-rose-950/40 border-rose-500 shadow-2xl shadow-rose-900/50 ring-8 ring-rose-500/20'
+                : isLightMode
+                  ? 'bg-gradient-to-b from-white via-indigo-50/30 to-white border-indigo-200/80 shadow-lg'
+                  : 'bg-gradient-to-b from-slate-900 via-indigo-950/20 to-slate-900 border-slate-800 shadow-2xl'
+            }`
+      }>
+        {/* Fullscreen top control bar */}
+        {isTimerFullscreen && (
+          <div className="w-full max-w-5xl flex flex-wrap items-center justify-between gap-3 mb-4 bg-slate-900/90 border border-slate-800 px-4 py-3 rounded-2xl shadow-2xl">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-black uppercase text-amber-400 flex items-center gap-1.5 mr-1">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>CHỌN NHANH:</span>
+              </span>
+              {[1, 2, 3, 5, 10, 15, 20].map((m) => (
+                <button
+                  key={m}
+                  onClick={() => handleSetPreset(m)}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                    initialDuration === m * 60
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'bg-slate-800 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  {m}p
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setTickAudioEnabled(!tickAudioEnabled)}
+                className={`px-3 py-1 rounded-xl text-xs font-bold border transition-colors flex items-center gap-1 ${
+                  tickAudioEnabled ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/40' : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}
+              >
+                <Volume2 className="w-3.5 h-3.5" />
+                <span>{tickAudioEnabled ? 'Bật tích tắc' : 'Tắt tích tắc'}</span>
+              </button>
+
+              <button
+                onClick={toggleTimerFullscreen}
+                className="px-4 py-1.5 rounded-xl font-display font-black text-xs sm:text-sm bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 shadow-lg shadow-rose-600/30 transition-all cursor-pointer active:scale-95"
+                title="Thu nhỏ lại (Phím Esc hoặc F)"
+              >
+                <Minimize2 className="w-4 h-4" />
+                <span>Thu nhỏ (Esc)</span>
+              </button>
+            </div>
+          </div>
+        )}
         {/* Banner for Time's Up */}
         {isTimeUp && (
           <div className="mb-6 px-6 py-2 rounded-2xl bg-rose-600 text-white font-black text-2xl sm:text-3xl animate-bounce flex items-center gap-3 shadow-lg">
@@ -223,7 +325,11 @@ export const CountdownTimerTab: React.FC<CountdownTimerTabProps> = ({ isLightMod
         )}
 
         {/* Circular Progress & Clock Container */}
-        <div className="relative w-72 h-72 sm:w-96 sm:h-96 flex items-center justify-center">
+        <div className={`relative flex items-center justify-center transition-all ${
+          isTimerFullscreen
+            ? 'w-80 h-80 sm:w-[460px] sm:h-[460px] my-auto'
+            : 'w-72 h-72 sm:w-96 sm:h-96'
+        }`}>
           {/* SVG Progress Circle */}
           <svg className="w-full h-full transform -rotate-90" viewBox="0 0 300 300">
             {/* Background track */}
@@ -260,10 +366,12 @@ export const CountdownTimerTab: React.FC<CountdownTimerTabProps> = ({ isLightMod
 
           {/* Huge Numeric Digits inside circle */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className={`font-black font-display text-7xl sm:text-9xl tabular-nums tracking-tighter leading-none ${timerColorClass}`}>
+            <div className={`font-black font-display tabular-nums tracking-tighter leading-none ${
+              isTimerFullscreen ? 'text-8xl sm:text-[11rem]' : 'text-7xl sm:text-9xl'
+            } ${timerColorClass}`}>
               {formattedMinutes}:{formattedSeconds}
             </div>
-            <div className="text-sm sm:text-base font-bold text-slate-400 mt-2">
+            <div className={`font-bold text-slate-400 mt-2 ${isTimerFullscreen ? 'text-base sm:text-xl' : 'text-sm sm:text-base'}`}>
               {isTimeUp 
                 ? 'ĐÃ HẾT THỜI GIAN' 
                 : isRunning 

@@ -64,8 +64,9 @@ export const DuckRaceGame: React.FC<DuckRaceGameProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Default duration is exactly 10 seconds as requested
-  const RACE_DURATION = 10; // seconds
+  // Duration option (5s, 10s, 15s)
+  const [raceDuration, setRaceDuration] = useState<number>(10);
+  const RACE_DURATION = raceDuration;
 
   const [maxDucksOption, setMaxDucksOption] = useState<'all' | '10' | '16'>(
     candidates.length <= 16 ? 'all' : '16'
@@ -576,8 +577,27 @@ export const DuckRaceGame: React.FC<DuckRaceGameProps> = ({
           </div>
         </div>
 
-        {/* 10-Second Live Timer Display */}
-        <div className="flex items-center gap-3">
+        {/* Live Timer Display & Duration Selector */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          {/* Race Duration Selector */}
+          <div className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-2 rounded-2xl text-xs border border-slate-700">
+            <span className="text-slate-400">Thời gian:</span>
+            <select
+              value={raceDuration}
+              onChange={(e) => {
+                const dur = Number(e.target.value);
+                setRaceDuration(dur);
+                setSecondsRemaining(dur);
+              }}
+              disabled={raceState !== 'ready'}
+              className="bg-transparent text-amber-300 font-bold outline-none cursor-pointer"
+            >
+              <option value={5}>Nhanh (5s)</option>
+              <option value={10}>Chuẩn (10s)</option>
+              <option value={15}>Hồi hộp (15s)</option>
+            </select>
+          </div>
+
           <div className={`px-4 py-2 rounded-2xl border flex items-center gap-2.5 font-display transition-all ${
             raceState === 'racing'
               ? secondsRemaining <= 3

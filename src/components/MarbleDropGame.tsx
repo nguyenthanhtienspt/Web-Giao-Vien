@@ -77,8 +77,9 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Exact 10 seconds duration limit as requested
-  const DROP_DURATION = 10; // seconds
+  // Duration option (5s, 10s, 15s)
+  const [dropDuration, setDropDuration] = useState<number>(10);
+  const DROP_DURATION = dropDuration;
 
   const [maxMarblesOption, setMaxMarblesOption] = useState<'all' | '12' | '20'>(
     candidates.length <= 16 ? 'all' : '20'
@@ -577,8 +578,8 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
               }
             });
 
-            // Winner Gate opens when elapsedSec >= 8.6s (marble lands into winner cup)
-            if (elapsedSec >= 8.6) {
+            // Winner Gate opens when elapsedSec >= 86% of duration (marble lands into winner cup)
+            if (elapsedSec >= DROP_DURATION * 0.86) {
               if (m.y >= finishY + 8 && m.x >= slotX && m.x <= slotX + slotWidth) {
                 m.finished = true;
                 m.finishTime = currentTime;
@@ -593,8 +594,8 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
               }
             }
 
-            // Bottom bounce before 8.6s
-            if (elapsedSec < 8.6 && m.y > height - m.radius - 12) {
+            // Bottom bounce before 86% of duration
+            if (elapsedSec < DROP_DURATION * 0.86 && m.y > height - m.radius - 12) {
               m.y = height - m.radius - 12;
               m.vy = -Math.abs(m.vy) * 0.75 - 4;
               m.vx += (Math.random() - 0.5) * 6;
@@ -602,9 +603,9 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
           }
         });
 
-        // 10 seconds reached OR required winners in cup at end of drop
+        // Target duration reached OR required winners in cup at end of drop
         const needed = Math.min(batchCount, contestants.length);
-        const reachedAtEnd = finishOrderRef.current.length >= needed && elapsedSec >= 9.2;
+        const reachedAtEnd = finishOrderRef.current.length >= needed && elapsedSec >= DROP_DURATION * 0.92;
         const timeExpired = elapsedSec >= DROP_DURATION;
 
         if ((reachedAtEnd || timeExpired) && gameState === 'dropping') {
@@ -747,6 +748,25 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
 
         {/* Countdown Clock & Controls */}
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          {/* Drop Duration Selector */}
+          <div className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-2 rounded-2xl text-xs border border-slate-700">
+            <span className="text-slate-400">Thời gian:</span>
+            <select
+              value={dropDuration}
+              onChange={(e) => {
+                const dur = Number(e.target.value);
+                setDropDuration(dur);
+                setSecondsRemaining(dur);
+              }}
+              disabled={gameState !== 'ready'}
+              className="bg-transparent text-indigo-300 font-bold outline-none cursor-pointer"
+            >
+              <option value={5}>Nhanh (5s)</option>
+              <option value={10}>Chuẩn (10s)</option>
+              <option value={15}>Hồi hộp (15s)</option>
+            </select>
+          </div>
+
           <div className={`px-4 py-2 rounded-2xl border flex items-center gap-2.5 font-display transition-all ${
             gameState === 'dropping'
               ? secondsRemaining <= 3

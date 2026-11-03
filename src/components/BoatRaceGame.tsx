@@ -65,7 +65,8 @@ export const BoatRaceGame: React.FC<BoatRaceGameProps> = ({
   onToggleFullscreen,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const RACE_DURATION = 10; // 10 seconds
+  const [raceDuration, setRaceDuration] = useState<number>(10);
+  const RACE_DURATION = raceDuration;
 
   const [maxBoatsOption, setMaxBoatsOption] = useState<'all' | '10' | '16'>(
     candidates.length <= 16 ? 'all' : '16'
@@ -599,6 +600,25 @@ export const BoatRaceGame: React.FC<BoatRaceGameProps> = ({
               <option value="all">Tất cả ({candidates.length})</option>
               <option value="10">Top 10 thuyền</option>
               <option value="16">Top 16 thuyền</option>
+            </select>
+          </div>
+
+          {/* Race Duration Selector */}
+          <div className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-xl text-xs border border-slate-700">
+            <span className="text-slate-400">Thời gian:</span>
+            <select
+              value={raceDuration}
+              onChange={(e) => {
+                const dur = Number(e.target.value);
+                setRaceDuration(dur);
+                setSecondsRemaining(dur);
+              }}
+              disabled={raceState !== 'ready'}
+              className="bg-transparent text-cyan-300 font-bold outline-none cursor-pointer"
+            >
+              <option value={5}>Nhanh (5s)</option>
+              <option value={10}>Chuẩn (10s)</option>
+              <option value={15}>Hồi hộp (15s)</option>
             </select>
           </div>
 

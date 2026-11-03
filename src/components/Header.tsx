@@ -152,6 +152,36 @@ export const Header: React.FC<HeaderProps> = ({
             </select>
           </div>
 
+          {/* Quick Teacher Soundboard for classroom interaction */}
+          <div className={`hidden lg:flex items-center gap-1 px-2 py-1 rounded-xl border ${
+            isLightMode ? 'bg-slate-50 border-slate-300' : 'bg-slate-800/80 border-slate-700'
+          }`}>
+            <button
+              onClick={() => soundManager.playApplause()}
+              className="px-2 py-1 rounded-lg text-xs font-bold text-amber-400 hover:bg-amber-400/20 transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+              title="Tiếng vỗ tay hoan hô học sinh"
+            >
+              <span>👏</span>
+              <span className="hidden xl:inline">Vỗ tay</span>
+            </button>
+            <button
+              onClick={() => soundManager.playCorrectChime()}
+              className="px-2 py-1 rounded-lg text-xs font-bold text-emerald-400 hover:bg-emerald-400/20 transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+              title="Chuông báo trả lời đúng (Ting ting!)"
+            >
+              <span>🔔</span>
+              <span className="hidden xl:inline">Đúng rồi!</span>
+            </button>
+            <button
+              onClick={() => soundManager.playTryAgain()}
+              className="px-2 py-1 rounded-lg text-xs font-bold text-indigo-400 hover:bg-indigo-400/20 transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+              title="Âm thanh động viên (Cố lên!)"
+            >
+              <span>💡</span>
+              <span className="hidden xl:inline">Cố lên</span>
+            </button>
+          </div>
+
           {/* Sound toggle */}
           <button
             onClick={handleToggleSound}

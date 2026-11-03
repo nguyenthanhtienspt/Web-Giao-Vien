@@ -30,8 +30,31 @@ const FIREWORK_COLORS = [
   '#FFFFFF', // Starlight White
 ];
 
+const SCOREBOARD_STORAGE_KEY = 'tro_ly_lop_hoc_scoreboard_v2';
+
 export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => {
-  const [groups, setGroups] = useState<GroupScore[]>(INITIAL_GROUPS);
+  const [groups, setGroups] = useState<GroupScore[]>(() => {
+    try {
+      const raw = localStorage.getItem(SCOREBOARD_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error('Failed to load scoreboard from storage', e);
+    }
+    return INITIAL_GROUPS;
+  });
+
+  // Automatically save scores whenever groups change
+  useEffect(() => {
+    try {
+      localStorage.setItem(SCOREBOARD_STORAGE_KEY, JSON.stringify(groups));
+    } catch (e) {
+      console.error('Failed to save scoreboard to storage', e);
+    }
+  }, [groups]);
+
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
   const [showCeremony, setShowCeremony] = useState<boolean>(false);
@@ -282,8 +305,11 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
             <Trophy className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-lg sm:text-xl font-black font-display tracking-tight flex items-center gap-2">
+            <h3 className="text-lg sm:text-xl font-black font-display tracking-tight flex items-center gap-2 flex-wrap">
               <span>BẢNG ĐIỂM THI ĐUA 8 NHÓM</span>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                ✓ Tự lưu điểm trên máy
+              </span>
               {maxScore >= 10 && (
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-400 border border-amber-400/30 flex items-center gap-1">
                   <Flame className="w-3.5 h-3.5 fill-amber-400" />
