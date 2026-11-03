@@ -266,7 +266,7 @@ export const CarRaceGame: React.FC<CarRaceGameProps> = ({
       ctx.fillStyle = '#fbbf24';
       ctx.font = 'bold 13px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('ĐÍCH (10s) 🏁', finishX + checkerSize, 18);
+      ctx.fillText('ĐÍCH 🏁', finishX + checkerSize, 18);
 
       // 2. Physics & State Update
       const cars = carsRef.current;
@@ -523,9 +523,6 @@ export const CarRaceGame: React.FC<CarRaceGameProps> = ({
           <div>
             <h3 className="font-display font-black text-lg sm:text-xl flex items-center gap-2">
               <span>Đua Siêu Xe F1 Turbo</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold border border-red-500/30">
-                10 giây
-              </span>
             </h3>
             <p className="text-xs text-slate-400">
               Trường đua F1 kịch tính · Bứt tốc Nitro cán đích chọn {batchCount} người

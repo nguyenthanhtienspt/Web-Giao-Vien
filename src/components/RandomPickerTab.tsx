@@ -148,13 +148,13 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
     setWinnerNotification({
       gameModeName:
         pickerGameType === 'duck'
-          ? 'Đua vịt đại chiến (10 giây)'
+          ? 'Đua vịt đại chiến'
           : pickerGameType === 'marble'
-            ? 'Thả viên bi Plinko (10 giây)'
+            ? 'Thả viên bi Plinko'
             : pickerGameType === 'car'
-              ? 'Đua siêu xe F1 Turbo (10 giây)'
+              ? 'Đua siêu xe F1 Turbo'
               : pickerGameType === 'boat'
-                ? 'Đua thuyền rồng vượt sóng (10 giây)'
+                ? 'Đua thuyền rồng vượt sóng'
                 : pickerGameType === 'magic'
                   ? 'Rút thăm bài ma thuật'
                   : 'Quay số ngẫu nhiên',
@@ -448,7 +448,7 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               <span>QUAY SỐ LỚN</span>
             </button>
 
-            {/* 2. Duck Race (10 seconds) */}
+            {/* 2. Duck Race */}
             <button
               onClick={() => setPickerGameType('duck')}
               className={`px-3.5 sm:px-4 py-2 rounded-xl font-display font-black text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
@@ -458,13 +458,10 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               }`}
             >
               <span>🦆</span>
-              <span>ĐUA VỊT (10 GIÂY)</span>
-              <span className="text-[10px] bg-amber-400/30 text-amber-900 dark:text-amber-200 px-1.5 py-0.2 rounded-full uppercase font-black">
-                10s
-              </span>
+              <span>ĐUA VỊT</span>
             </button>
 
-            {/* 3. Marble Drop (10 seconds) */}
+            {/* 3. Marble Drop */}
             <button
               onClick={() => setPickerGameType('marble')}
               className={`px-3.5 sm:px-4 py-2 rounded-xl font-display font-black text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
@@ -475,12 +472,9 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
             >
               <span>🔮</span>
               <span>THẢ BI PLINKO</span>
-              <span className="text-[10px] bg-purple-400/30 text-white px-1.5 py-0.2 rounded-full uppercase font-black">
-                10s
-              </span>
             </button>
 
-            {/* 4. Car Race (10 seconds) */}
+            {/* 4. Car Race */}
             <button
               onClick={() => setPickerGameType('car')}
               className={`px-3.5 sm:px-4 py-2 rounded-xl font-display font-black text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
@@ -491,12 +485,9 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
             >
               <span>🏎️</span>
               <span>ĐUA XE F1</span>
-              <span className="text-[10px] bg-red-400/30 text-white px-1.5 py-0.2 rounded-full uppercase font-black">
-                10s
-              </span>
             </button>
 
-            {/* 5. Boat Race (10 seconds) */}
+            {/* 5. Boat Race */}
             <button
               onClick={() => setPickerGameType('boat')}
               className={`px-3.5 sm:px-4 py-2 rounded-xl font-display font-black text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
@@ -507,9 +498,6 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
             >
               <span>🚣</span>
               <span>ĐUA THUYỀN RỒNG</span>
-              <span className="text-[10px] bg-cyan-400/30 text-white px-1.5 py-0.2 rounded-full uppercase font-black">
-                10s
-              </span>
             </button>
 
             {/* 6. Magic Card Draw */}
@@ -523,9 +511,6 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
             >
               <span>🃏</span>
               <span>BÀI MA THUẬT</span>
-              <span className="text-[10px] bg-purple-400/30 text-white px-1.5 py-0.2 rounded-full uppercase font-black">
-                LẬT 3D
-              </span>
             </button>
           </div>
         </div>

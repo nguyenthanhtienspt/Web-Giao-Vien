@@ -289,7 +289,7 @@ export const BoatRaceGame: React.FC<BoatRaceGameProps> = ({
       ctx.fillStyle = '#fef08a';
       ctx.font = 'bold 13px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('ĐÍCH (10s) 🏁', finishX + checkerSize, 18);
+      ctx.fillText('ĐÍCH 🏁', finishX + checkerSize, 18);
 
       // 2. Physics & State
       const boats = boatsRef.current;
@@ -575,9 +575,6 @@ export const BoatRaceGame: React.FC<BoatRaceGameProps> = ({
           <div>
             <h3 className="font-display font-black text-lg sm:text-xl flex items-center gap-2">
               <span>Đua Thuyền Rồng Vượt Sóng</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 font-semibold border border-cyan-500/30">
-                10 giây
-              </span>
             </h3>
             <p className="text-xs text-slate-400">
               Tiếng trống hội giục giã · Rẽ sóng trắng xóa chọn {batchCount} người

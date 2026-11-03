@@ -279,7 +279,7 @@ export const DuckRaceGame: React.FC<DuckRaceGameProps> = ({
       ctx.fillStyle = '#fbbf24';
       ctx.font = 'bold 13px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('ĐÍCH (10s) 🏁', finishX + checkerSize, 18);
+      ctx.fillText('ĐÍCH 🏁', finishX + checkerSize, 18);
 
       // Lane dividers
       for (let i = 0; i <= laneCount; i++) {
@@ -560,14 +560,14 @@ export const DuckRaceGame: React.FC<DuckRaceGameProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-display font-black text-lg sm:text-xl text-amber-400">
-                ĐUA VỊT ĐẠI CHIẾN (10 GIÂY)
+                ĐUA VỊT ĐẠI CHIẾN
               </h3>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
                 {contestants.length} chú vịt bơi
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Đường đua nước rút 10 giây tốc độ cao · Hiển thị rõ người chiến thắng lên màn hình
+              Đường đua nước rút tốc độ cao · Hiển thị rõ người chiến thắng lên màn hình
             </p>
           </div>
         </div>
@@ -613,7 +613,7 @@ export const DuckRaceGame: React.FC<DuckRaceGameProps> = ({
               className="px-6 py-2.5 rounded-xl font-display font-black text-sm bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-lg shadow-amber-500/30 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
             >
               <Play className="w-4 h-4 fill-current" />
-              <span>BẮT ĐẦU ĐUA (10s)</span>
+              <span>BẮT ĐẦU ĐUA</span>
             </button>
           )}
 
@@ -623,7 +623,7 @@ export const DuckRaceGame: React.FC<DuckRaceGameProps> = ({
               className="px-5 py-2.5 rounded-xl font-display font-bold text-sm bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg flex items-center gap-2 cursor-pointer transition-all active:scale-95"
             >
               <RotateCcw className="w-4 h-4" />
-              <span>Đua hiệp mới (10s)</span>
+              <span>Đua hiệp mới</span>
             </button>
           )}
         </div>
@@ -680,20 +680,20 @@ export const DuckRaceGame: React.FC<DuckRaceGameProps> = ({
               🦆
             </div>
             <h2 className="text-2xl sm:text-4xl font-display font-black text-white mb-2 drop-shadow-md">
-              ĐUA VỊT 10 GIÂY TỐC ĐỘ CAO!
+              ĐUA VỊT TỐC ĐỘ CAO!
             </h2>
             <p className="text-sm sm:text-base text-sky-200 max-w-md mb-6">
-              Có <strong className="text-amber-400">{contestants.length} chú vịt</strong> mang tên học sinh đang sẵn sàng bơi 10 giây để tìm người chiến thắng!
+              Có <strong className="text-amber-400">{contestants.length} chú vịt</strong> mang tên học sinh đang sẵn sàng bơi để tìm người chiến thắng!
             </p>
             <button
               onClick={handleStartRace}
               className="px-8 sm:px-12 py-4 rounded-2xl font-display font-black text-xl sm:text-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 shadow-2xl shadow-amber-500/50 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 cursor-pointer"
             >
               <Play className="w-6 h-6 fill-current" />
-              <span>BẮT ĐẦU ĐUA NGAY (10s)</span>
+              <span>BẮT ĐẦU ĐUA NGAY</span>
             </button>
             <span className="mt-3 text-xs text-sky-200/80">
-              Nhấn phím Space hoặc chuột để bấm giờ 10 giây
+              Nhấn phím Space hoặc chuột để bắt đầu
             </span>
           </div>
         )}
@@ -705,7 +705,7 @@ export const DuckRaceGame: React.FC<DuckRaceGameProps> = ({
               {countdown}
             </div>
             <span className="text-2xl font-bold font-display text-white mt-4 tracking-widest uppercase">
-              XUẤT PHÁT ĐUA 10 GIÂY...
+              XUẤT PHÁT ĐUA...
             </span>
           </div>
         )}
@@ -719,7 +719,7 @@ export const DuckRaceGame: React.FC<DuckRaceGameProps> = ({
 
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-sm font-black uppercase tracking-widest mb-3">
               <Sparkles className="w-4 h-4" />
-              <span>🏆 NGƯỜI CHIẾN THẮNG ĐUA VỊT (10 GIÂY) 🏆</span>
+              <span>🏆 NGƯỜI CHIẾN THẮNG ĐUA VỊT 🏆</span>
             </div>
 
             {/* Winner Card Showing FULL STUDENT NAME in Huge Typography */}
@@ -758,7 +758,7 @@ export const DuckRaceGame: React.FC<DuckRaceGameProps> = ({
                 className="px-8 py-4 rounded-2xl font-display font-black text-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-xl shadow-indigo-600/40 transition-transform active:scale-95 flex items-center gap-2.5 cursor-pointer"
               >
                 <RotateCcw className="w-5 h-5" />
-                <span>Đua lại lượt mới (10s)</span>
+                <span>Đua lại lượt mới</span>
               </button>
             </div>
           </div>

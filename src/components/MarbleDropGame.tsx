@@ -736,12 +736,12 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Đợt thả bi 10 giây va đập kịch tính · Hiển thị rõ người chiến thắng lên màn hình
+              Đợt thả bi va đập kịch tính · Hiển thị rõ người chiến thắng lên màn hình
             </p>
           </div>
         </div>
 
-        {/* 10-Second Countdown Clock */}
+        {/* Countdown Clock */}
         <div className="flex items-center gap-3">
           <div className={`px-4 py-2 rounded-2xl border flex items-center gap-2.5 font-display transition-all ${
             gameState === 'dropping'
@@ -768,7 +768,7 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
               className="px-6 py-2.5 rounded-xl font-display font-black text-sm bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-lg shadow-indigo-500/30 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
             >
               <Play className="w-4 h-4 fill-current" />
-              <span>MỞ CỬA THẢ BI (10s)</span>
+              <span>MỞ CỬA THẢ BI</span>
             </button>
           )}
 
@@ -778,7 +778,7 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
               className="px-5 py-2.5 rounded-xl font-display font-bold text-sm bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg flex items-center gap-2 cursor-pointer transition-all active:scale-95"
             >
               <RotateCcw className="w-4 h-4" />
-              <span>Thả đợt mới (10s)</span>
+              <span>Thả đợt mới</span>
             </button>
           )}
         </div>
@@ -835,20 +835,20 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
               🔮
             </div>
             <h2 className="text-2xl sm:text-4xl font-display font-black text-white mb-2 drop-shadow-md">
-              THẢ VIÊN BI 10 GIÂY HỒI HỘP!
+              THẢ VIÊN BI HỒI HỘP!
             </h2>
             <p className="text-sm sm:text-base text-indigo-200 max-w-md mb-6">
-              Có <strong className="text-amber-400">{contestants.length} viên bi</strong> mang tên học sinh đang chờ trên máng thả 10 giây để tìm người chiến thắng!
+              Có <strong className="text-amber-400">{contestants.length} viên bi</strong> mang tên học sinh đang chờ trên máng thả để tìm người chiến thắng!
             </p>
             <button
               onClick={handleStartDrop}
               className="px-8 sm:px-12 py-4 rounded-2xl font-display font-black text-xl sm:text-2xl bg-gradient-to-r from-indigo-500 via-purple-600 to-pink-500 hover:from-indigo-400 hover:to-pink-400 text-white shadow-2xl shadow-indigo-500/50 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 cursor-pointer"
             >
               <Play className="w-6 h-6 fill-current" />
-              <span>THẢ BI NGAY (10s)</span>
+              <span>THẢ BI NGAY</span>
             </button>
             <span className="mt-3 text-xs text-indigo-200/80">
-              Nhấn phím Space hoặc chuột để bấm giờ thả bi 10 giây
+              Nhấn phím Space hoặc chuột để thả bi
             </span>
           </div>
         )}
@@ -860,7 +860,7 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
               {countdown}
             </div>
             <span className="text-2xl font-bold font-display text-white mt-4 tracking-widest uppercase">
-              MỞ CỬA THẢ BI 10 GIÂY...
+              MỞ CỬA THẢ BI...
             </span>
           </div>
         )}
@@ -874,7 +874,7 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
 
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/20 border border-purple-400/40 text-purple-300 text-sm font-black uppercase tracking-widest mb-3">
               <Sparkles className="w-4 h-4" />
-              <span>🏆 NGƯỜI CHIẾN THẮNG THẢ BI (10 GIÂY) 🏆</span>
+              <span>🏆 NGƯỜI CHIẾN THẮNG THẢ BI 🏆</span>
             </div>
 
             {/* Winner Card Showing FULL STUDENT NAME in Huge Typography */}
@@ -913,7 +913,7 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
                 className="px-8 py-4 rounded-2xl font-display font-black text-lg bg-purple-600 hover:bg-purple-500 text-white shadow-xl shadow-purple-600/40 transition-transform active:scale-95 flex items-center gap-2.5 cursor-pointer"
               >
                 <RotateCcw className="w-5 h-5" />
-                <span>Thả lại lượt mới (10s)</span>
+                <span>Thả lại lượt mới</span>
               </button>
             </div>
           </div>
