@@ -401,7 +401,7 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
                     title="Nạp lại danh sách học sinh chuẩn từ hệ thống (Lớp 9A1, 9B...)"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Lớp chuẩn hệ thống (9A1, 9B)</span>
+                    <span>Lớp chuẩn hệ thống (6B, 9A1, 9B)</span>
                   </button>
                 </div>
               </div>

@@ -1,9 +1,54 @@
 import { SavedClass } from '../types';
 
-const STORAGE_KEY = 'tro_ly_lop_hoc_classes_v2';
-const ACTIVE_CLASS_KEY = 'tro_ly_lop_hoc_active_class_id_v2';
+const STORAGE_KEY = 'tro_ly_lop_hoc_classes_v3';
+const ACTIVE_CLASS_KEY = 'tro_ly_lop_hoc_active_class_id_v3';
 
 export const DEFAULT_CLASSES: SavedClass[] = [
+  {
+    id: 'class_6b',
+    name: 'Lớp 6B',
+    studentCount: 37,
+    students: [
+      'Hoàng Thị Phương Anh',
+      'Nguyễn Thị Hồng Ánh',
+      'Tô Gia Bảo',
+      'Nguyễn Thị Bảo Châu',
+      'Lê Kiều Dung',
+      'Phạm Tiến Dũng',
+      'Lê Kiên Giáp',
+      'Bế Thị Hải',
+      'Hoàng Thị Thu Hằng',
+      'Triệu Phúc Hùng',
+      'Vương Thị Lan Hương',
+      'Phạm Văn Khánh',
+      'Lê Tuấn Kiệt',
+      'Đoàn Hồng Loan',
+      'Đoàn Văn Mạnh',
+      'Lê Trà My',
+      'Lê Hoàng Bảo Nam',
+      'Hoàng Thị Thanh Nga',
+      'Đoàn Thảo Nhi',
+      'Đoàn Thị Yến Nhi',
+      'Hoàng Thị Tâm Như',
+      'Đoàn Thị Oanh',
+      'Nguyễn Đại Phong',
+      'Phạm Thanh Phong',
+      'Nguyễn Hà Phương',
+      'Phạm Thị Như Quỳnh',
+      'Lê Thị Thu Thảo',
+      'Phạm Thanh Thúy',
+      'Đoàn Thị Thư',
+      'Trần Hoàng Minh Thư',
+      'Đoàn Thị Tiền',
+      'Hoàng Lâm Tùng',
+      'Phạm Sơn Tùng',
+      'Hoàng Thị Bạch Tuyết',
+      'Phạm Huy Vũ',
+      'Lê Thảo Vy',
+      'Phạm Thế Vỹ',
+    ],
+    updatedAt: Date.now(),
+  },
   {
     id: 'class_9a1',
     name: 'Lớp 9A1',
