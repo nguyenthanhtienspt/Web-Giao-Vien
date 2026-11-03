@@ -1,7 +1,7 @@
 import { SavedClass } from '../types';
 
-const STORAGE_KEY = 'tro_ly_lop_hoc_classes_v4';
-const ACTIVE_CLASS_KEY = 'tro_ly_lop_hoc_active_class_id_v4';
+const STORAGE_KEY = 'tro_ly_lop_hoc_classes_v5';
+const ACTIVE_CLASS_KEY = 'tro_ly_lop_hoc_active_class_id_v5';
 
 export const DEFAULT_CLASSES: SavedClass[] = [
   {
@@ -203,6 +203,54 @@ export const DEFAULT_CLASSES: SavedClass[] = [
     updatedAt: Date.now(),
   },
   {
+    id: 'class_7b',
+    name: 'Lớp 7B',
+    studentCount: 40,
+    students: [
+      'Bùi Thị Ngọc Anh',
+      'Nguyễn Tô Thiên Ân',
+      'Phạm Thị Chinh',
+      'Phạm Văn Đạt',
+      'Phạm Văn Đại',
+      'Đoàn Tiến Đạt',
+      'Lê Minh Đức',
+      'Phạm Tiến DũngA',
+      'Hoàng Thế Duy',
+      'Lê Thị Hương Giang',
+      'Lê Thị Kiều Hân',
+      'Hoàng Đăng Khôi',
+      'Phạm Thùy Linh',
+      'Vương Phương Linh',
+      'Hoàng Thị Thanh Ngân',
+      'Phạm Thị Ngọc',
+      'Tô Thị Nhàn',
+      'Vương Quang Nhật',
+      'Đặng Yến Nhi',
+      'Lê Thị Yến Nhi',
+      'Phạm Nhật Thế Phong',
+      'Đoàn Gia Phú',
+      'Phạm Thế Phương',
+      'Ôn Bích Quyên',
+      'Tô Thị Hồng Sang',
+      'Lê Thị Phương Thảo',
+      'Nguyễn Thị Thu Thảo',
+      'Phạm Thị Thảo',
+      'Hoàng Thị Ngọc Thi',
+      'Đoàn Đức Thiện',
+      'Phạm Đức Thịnh',
+      'Đặng Thị Anh Thư',
+      'Hoàng Hoài Thư',
+      'Phạm Tiến Toàn',
+      'Lê Thị Thu Trà',
+      'Đoàn Thị Ngọc Trâm',
+      'Hoàng Thị Bảo Trâm',
+      'Đoàn Thị Kiều Trang',
+      'Lê Thị Thanh Trúc',
+      'Đoàn Bảo Uyên',
+    ],
+    updatedAt: Date.now(),
+  },
+  {
     id: 'class_9a1',
     name: 'Lớp 9A1',
     studentCount: 34,
@@ -298,7 +346,10 @@ export const classStorage = {
   getClasses: (): SavedClass[] => {
     if (typeof window === 'undefined') return DEFAULT_CLASSES;
     try {
-      const data = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('tro_ly_lop_hoc_classes_v3');
+      const data =
+        localStorage.getItem(STORAGE_KEY) ||
+        localStorage.getItem('tro_ly_lop_hoc_classes_v4') ||
+        localStorage.getItem('tro_ly_lop_hoc_classes_v3');
       if (!data) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CLASSES));
         return DEFAULT_CLASSES;
@@ -312,12 +363,18 @@ export const classStorage = {
       // Merge new default classes that are not yet in parsed list ("lớp nào có rồi thì không cần add nữa")
       let hasNew = false;
       DEFAULT_CLASSES.forEach((defCls) => {
-        const exists = parsed.some(
+        const foundIdx = parsed.findIndex(
           (c) => c.name.toLowerCase().replace(/\s+/g, '') === defCls.name.toLowerCase().replace(/\s+/g, '')
         );
-        if (!exists) {
+        if (foundIdx === -1) {
           parsed.push(defCls);
           hasNew = true;
+        } else {
+          // If existing 7B was old sample list (< 25 students), update it with real 40 students
+          if (defCls.name === 'Lớp 7B' && parsed[foundIdx].students.length < 25) {
+            parsed[foundIdx] = defCls;
+            hasNew = true;
+          }
         }
       });
 
