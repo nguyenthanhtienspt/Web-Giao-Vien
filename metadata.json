@@ -1,0 +1,8 @@
+{
+  "name": "Remix Trợ lý lớp học THCS",
+  "description": "Ứng dụng hỗ trợ giáo viên THCS trình chiếu máy chiếu: gọi số ngẫu nhiên không lặp (quay số, đua vịt, thả viên bi Plinko), chia nhóm nhanh, đồng hồ đếm ngược có chuông và bảng điểm 8 nhóm thi đua.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
