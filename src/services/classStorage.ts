@@ -1,7 +1,7 @@
 import { SavedClass } from '../types';
 
-const STORAGE_KEY = 'tro_ly_lop_hoc_classes_v6';
-const ACTIVE_CLASS_KEY = 'tro_ly_lop_hoc_active_class_id_v6';
+const STORAGE_KEY = 'tro_ly_lop_hoc_classes_v7';
+const ACTIVE_CLASS_KEY = 'tro_ly_lop_hoc_active_class_id_v7';
 
 export const DEFAULT_CLASSES: SavedClass[] = [
   {
@@ -382,11 +382,12 @@ export const DEFAULT_CLASSES: SavedClass[] = [
   {
     id: 'class_9a1',
     name: 'Lớp 9A1',
-    studentCount: 34,
+    studentCount: 35,
     students: [
       'Bùi Hoàng Tâm',
       'Hoàng Gia Hưng',
       'Hoàng Hắc Long',
+      'Hoàng Minh Hòa',
       'Hoàng Minh Vũ',
       'Hoàng Mạnh Cường',
       'Hoàng Ngọc Tuấn',
@@ -422,9 +423,53 @@ export const DEFAULT_CLASSES: SavedClass[] = [
     updatedAt: Date.now(),
   },
   {
+    id: 'class_9a2',
+    name: 'Lớp 9A2',
+    studentCount: 36,
+    students: [
+      'Lê Minh Anh',
+      'Vi Ngọc Ánh',
+      'Lê Gia Bảo',
+      'Nguyễn Hữu Gia Bảo',
+      'Vương Ngọc Duy',
+      'Lê Trí Dũng',
+      'Vũ Tài Em',
+      'Vũ Gia Long Hải',
+      'Phạm Mai Hân',
+      'Chiều Văn Hoan',
+      'Ngô Thị Bảo Hoan',
+      'Lê Mạnh Hùng',
+      'Nguyễn Sinh Hùng',
+      'Nguyễn Hoàng Gia Hưng',
+      'Mạc Minh Khang',
+      'Trần Minh Khang',
+      'Hứa Đức Khải',
+      'Nguyễn Đăng Khoa',
+      'Phạm Hoàng Hải Long',
+      'Phạm Khánh Ly',
+      'Trần Hoàng Khánh Na',
+      'Trần Mạnh Nam',
+      'Mạc Thị Kim Ngân',
+      'Ngô Ngọc Ngân',
+      'Lê Thị Hồng Nhung',
+      'Lê Thị Tú Quyên',
+      'Hoàng Hồng Sơn',
+      'Nguyễn Thị Thanh Tâm',
+      'Phạm Văn Thái',
+      'Trần Thị Thu Thủy',
+      'Hoàng Mạnh Thương',
+      'Phạm Thùy Trang',
+      'Từ Thị Thanh Vân',
+      'Lê Nhật Vy',
+      'Trần Thị Hoàng Yến',
+      'Trần Mai Anh',
+    ],
+    updatedAt: Date.now(),
+  },
+  {
     id: 'class_9b',
     name: 'Lớp 9B',
-    studentCount: 40,
+    studentCount: 41,
     students: [
       'Đoàn Thế Anh',
       'Lê Đức Anh',
@@ -436,6 +481,7 @@ export const DEFAULT_CLASSES: SavedClass[] = [
       'Phạm Trung Dũng',
       'Đoàn Thành Đạt',
       'Hoàng Thành Đạt',
+      'Lê Anh Đức',
       'Vương Thị Hà Giang',
       'Phạm Minh Hằng',
       'Trần Thị Ngọc Hân',
@@ -444,15 +490,15 @@ export const DEFAULT_CLASSES: SavedClass[] = [
       'Nguyễn Duy Hoàng',
       'Phạm Gia Huy',
       'Phạm Lê Huy',
+      'Lê Đức Mạnh',
       'Phạm Thịnh Hưng',
       'Đặng Quân Kiệt',
       'Hồ Trần Hà Linh',
-      'Lê Đức Mạnh',
-      'Phạm Ngọc Minh',
       'Phạm Tiến Minh',
+      'Phạm Ngọc Minh',
       'Hoàng Ngọc Nam',
-      'Hoàng Thị Tuyết Nhi (21/02)',
-      'Hoàng Thị Tuyết Nhi (12/10)',
+      'Hoàng Thị Tuyết Nhi',
+      'Hoàng Thị Tuyết Nhi',
       'Đặng Hồng Nhung',
       'Lê Khánh Phương',
       'Phạm Thanh Quyên',
@@ -460,12 +506,12 @@ export const DEFAULT_CLASSES: SavedClass[] = [
       'Đoàn Tiến Tài',
       'Hoàng Thị Ngọc Thu',
       'Lê Ngọc Tranh',
-      'Ngân Thị Bảo Trinh',
       'Nguyễn Quốc Tuấn',
       'Lê Thị Ánh Tuyết',
       'Phạm Thị Thảo Vi',
       'Lê Thế Vinh',
       'Lê Nhật Vy',
+      'Ngân Thị Bảo Trinh',
     ],
     updatedAt: Date.now(),
   },
@@ -477,6 +523,7 @@ export const classStorage = {
     try {
       const data =
         localStorage.getItem(STORAGE_KEY) ||
+        localStorage.getItem('tro_ly_lop_hoc_classes_v6') ||
         localStorage.getItem('tro_ly_lop_hoc_classes_v5') ||
         localStorage.getItem('tro_ly_lop_hoc_classes_v4') ||
         localStorage.getItem('tro_ly_lop_hoc_classes_v3');
@@ -500,8 +547,12 @@ export const classStorage = {
           parsed.push(defCls);
           hasNew = true;
         } else {
-          // If existing 7B was old sample list (< 25 students), update it with real 40 students
-          if (defCls.name === 'Lớp 7B' && parsed[foundIdx].students.length < 25) {
+          // Update classes with official newly provided rosters if existing had fewer/sample students
+          if (
+            (defCls.name === 'Lớp 7B' && parsed[foundIdx].students.length < 40) ||
+            (defCls.name === 'Lớp 9A1' && parsed[foundIdx].students.length < 35) ||
+            (defCls.name === 'Lớp 9B' && parsed[foundIdx].students.length < 41)
+          ) {
             parsed[foundIdx] = defCls;
             hasNew = true;
           }

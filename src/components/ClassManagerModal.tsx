@@ -520,7 +520,7 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
                   <button
                     onClick={handleResetToSystemDefault}
                     className="px-3 py-1.5 rounded-lg bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 flex items-center gap-1.5 cursor-pointer"
-                    title="Nạp lại danh sách học sinh chuẩn từ hệ thống (Đầy đủ 11 lớp: Khối 6, 7, 8, 9)"
+                    title="Nạp lại danh sách học sinh chuẩn từ hệ thống (Đầy đủ 12 lớp: Khối 6, 7, 8, 9)"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
                     <span>Nạp lớp chuẩn (Khối 6, 7, 8, 9)</span>
