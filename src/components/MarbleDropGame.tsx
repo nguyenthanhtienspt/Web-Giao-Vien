@@ -133,10 +133,12 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
   const animFrameRef = useRef<number | null>(null);
   const dropStartTimeRef = useRef<number>(0);
   const finishOrderRef = useRef<Contestant[]>([]);
+  const winnerMarbleRef = useRef<Marble | null>(null);
   const lastTickTimeRef = useRef<number>(0);
 
   // Setup board elements (pegs, spinners, starting marbles)
   const initBoard = () => {
+    winnerMarbleRef.current = null;
     finishOrderRef.current = [];
     setWinners([]);
     setGameState('ready');
@@ -237,10 +239,10 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
         dropStartTimeRef.current = performance.now();
         setSecondsRemaining(DROP_DURATION);
 
-        // Initial impulse
+        // Initial gentle impulse for slower drop
         marblesRef.current.forEach((m) => {
-          m.vy = 2 + Math.random() * 3;
-          m.vx = (Math.random() - 0.5) * 4;
+          m.vy = 0.8 + Math.random() * 1.2;
+          m.vx = (Math.random() - 0.5) * 1.5;
         });
       }
     }, 900);
@@ -321,20 +323,21 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
         ctx.fillStyle = '#ef4444';
         ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('CỬA THẢ BI ĐANG ĐÓNG (30 GIÂY)', width / 2, hopperY - 2);
+        ctx.fillText('CỬA THẢ BI ĐANG ĐÓNG', width / 2, hopperY - 2);
       }
 
-      // Funnel & Catch Cup at bottom
-      const finishY = height - 60;
-      const slotWidth = 160;
+      // Funnel & Catch Basket at bottom ("Giỏ HS được chọn")
+      const finishY = height - 65;
+      const slotWidth = 140;
       const slotX = width / 2 - slotWidth / 2;
+      const hasWinnerInBasket = winnerMarbleRef.current !== null;
 
       ctx.save();
-      ctx.fillStyle = isLightMode ? 'rgba(79, 70, 229, 0.15)' : 'rgba(99, 102, 241, 0.25)';
+      ctx.fillStyle = isLightMode ? 'rgba(79, 70, 229, 0.12)' : 'rgba(99, 102, 241, 0.2)';
       ctx.strokeStyle = '#6366f1';
       ctx.lineWidth = 3;
 
-      // Left ramp
+      // Left ramp leading to basket
       ctx.beginPath();
       ctx.moveTo(30, height - 120);
       ctx.lineTo(slotX, finishY);
@@ -344,7 +347,7 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
       ctx.fill();
       ctx.stroke();
 
-      // Right ramp
+      // Right ramp leading to basket
       ctx.beginPath();
       ctx.moveTo(width - 30, height - 120);
       ctx.lineTo(slotX + slotWidth, finishY);
@@ -354,17 +357,38 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
       ctx.fill();
       ctx.stroke();
 
-      // Winner Pod
-      ctx.fillStyle = isLightMode ? '#e0e7ff' : '#312e81';
-      ctx.fillRect(slotX, finishY, slotWidth, 50);
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 4;
-      ctx.strokeRect(slotX, finishY, slotWidth, 50);
+      // Basket Container
+      ctx.fillStyle = isLightMode
+        ? (hasWinnerInBasket ? '#dcfce7' : '#e0e7ff')
+        : (hasWinnerInBasket ? 'rgba(16, 185, 129, 0.28)' : 'rgba(49, 46, 129, 0.8)');
+      ctx.beginPath();
+      ctx.roundRect(slotX, finishY, slotWidth, 55, [0, 0, 14, 14]);
+      ctx.fill();
 
-      ctx.fillStyle = '#f59e0b';
-      ctx.font = 'bold 13px sans-serif';
+      ctx.strokeStyle = hasWinnerInBasket ? '#10b981' : '#f59e0b';
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+
+      // Basket Top Rim
+      ctx.fillStyle = hasWinnerInBasket ? '#10b981' : '#f59e0b';
+      ctx.fillRect(slotX - 3, finishY - 3, slotWidth + 6, 6);
+
+      // Basket Label: " HS được chọn "
+      ctx.fillStyle = hasWinnerInBasket ? (isLightMode ? '#047857' : '#34d399') : (isLightMode ? '#3730a3' : '#fbbf24');
+      ctx.font = 'bold 13px "Lexend", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('🏆 CÚP QUÁN QUÂN (30s)', width / 2, finishY + 30);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(hasWinnerInBasket ? '✓ HS ĐƯỢC CHỌN' : '🧺 HS được chọn', width / 2, finishY + 42);
+
+      // If 1 marble has dropped into the basket, close the lid gate to block any other marbles
+      if (hasWinnerInBasket) {
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(slotX, finishY);
+        ctx.lineTo(slotX + slotWidth, finishY);
+        ctx.stroke();
+      }
       ctx.restore();
 
       // Side Bouncers with trampolines
@@ -470,27 +494,35 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
           }
         }
 
-        // Tuned gravity & bounce for 10s suspense
-        const gravity = 280; // active descent
+        // Tuned slow gravity & smooth damping for suspenseful observable descent
+        const gravity = 115; // Slower descent
 
         marbles.forEach((m) => {
           if (!m.finished) {
             m.vy += gravity * dt;
-            m.vx *= 0.992;
-            m.vy *= 0.992;
+            m.vx *= 0.985;
+            m.vy *= 0.985;
 
-            m.x += m.vx * dt * 2.8;
-            m.y += m.vy * dt * 2.8;
+            // Clamp max velocity for slower, controlled motion
+            const maxSpeed = 125;
+            const spd = Math.hypot(m.vx, m.vy);
+            if (spd > maxSpeed) {
+              m.vx = (m.vx / spd) * maxSpeed;
+              m.vy = (m.vy / spd) * maxSpeed;
+            }
+
+            m.x += m.vx * dt * 1.35;
+            m.y += m.vy * dt * 1.35;
 
             // Walls
             const minX = 40 + m.radius;
             const maxX = width - 40 - m.radius;
             if (m.x < minX) {
               m.x = minX;
-              m.vx = Math.abs(m.vx) * 0.75 + 3;
+              m.vx = Math.abs(m.vx) * 0.65 + 1.5;
             } else if (m.x > maxX) {
               m.x = maxX;
-              m.vx = -Math.abs(m.vx) * 0.75 - 3;
+              m.vx = -Math.abs(m.vx) * 0.65 - 1.5;
             }
 
             // Bouncers & Trampolines
@@ -502,15 +534,15 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
                 m.y - m.radius < b.y + b.h
               ) {
                 if (b.w > b.h) {
-                  // Trampoline bounce upward before 7.5 seconds
-                  if (elapsedSec < 7.5) {
-                    m.vy = -Math.abs(m.vy) * 0.85 - 5;
-                    m.vx += (Math.random() - 0.5) * 5;
+                  // Trampoline gentle bounce upward before 70% duration
+                  if (elapsedSec < DROP_DURATION * 0.7) {
+                    m.vy = -Math.abs(m.vy) * 0.65 - 2;
+                    m.vx += (Math.random() - 0.5) * 2.5;
                   }
                 } else {
                   // Side bouncers
-                  m.vx = b.x < width / 2 ? Math.abs(m.vx) + 5 : -Math.abs(m.vx) - 5;
-                  m.vy = -Math.abs(m.vy) * 0.4;
+                  m.vx = b.x < width / 2 ? Math.abs(m.vx) + 3 : -Math.abs(m.vx) - 3;
+                  m.vy = -Math.abs(m.vy) * 0.35;
                 }
                 if (clinkSoundThrottle <= 0) {
                   soundManager.playBoing();
@@ -522,14 +554,14 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
             // Ramp collision
             if (m.y > height - 130) {
               if (m.x < slotX && m.y > height - 120 + ((finishY - (height - 120)) / (slotX - 30)) * (m.x - 30) - m.radius) {
-                m.x += 4;
-                m.vx = Math.abs(m.vx) * 0.6 + 4;
-                m.vy = Math.abs(m.vy) * 0.6;
+                m.x += 2.5;
+                m.vx = Math.abs(m.vx) * 0.5 + 2.5;
+                m.vy = Math.abs(m.vy) * 0.5;
               }
               if (m.x > slotX + slotWidth && m.y > height - 120 + ((finishY - (height - 120)) / (width - 30 - (slotX + slotWidth))) * (width - 30 - m.x) - m.radius) {
-                m.x -= 4;
-                m.vx = -Math.abs(m.vx) * 0.6 - 4;
-                m.vy = Math.abs(m.vy) * 0.6;
+                m.x -= 2.5;
+                m.vx = -Math.abs(m.vx) * 0.5 - 2.5;
+                m.vy = Math.abs(m.vy) * 0.5;
               }
             }
 
@@ -548,8 +580,8 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
                 m.y = peg.y + ny * minDist;
 
                 const dot = m.vx * nx + m.vy * ny;
-                m.vx = (m.vx - 2 * dot * nx) * 0.72 + (Math.random() - 0.5) * 4;
-                m.vy = (m.vy - 2 * dot * ny) * 0.72 + (Math.random() - 0.5) * 2;
+                m.vx = (m.vx - 2 * dot * nx) * 0.52 + (Math.random() - 0.5) * 2;
+                m.vy = (m.vy - 2 * dot * ny) * 0.52 + (Math.random() - 0.5) * 1.5;
 
                 peg.glow = 1;
                 m.score += 1;
@@ -569,8 +601,8 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
               if (dist < m.radius + s.radius) {
                 const nx = dx / (dist || 1);
                 const ny = dy / (dist || 1);
-                m.vx = nx * 8 + (Math.random() - 0.5) * 6;
-                m.vy = ny * 8;
+                m.vx = nx * 3.5 + (Math.random() - 0.5) * 2.5;
+                m.vy = ny * 3.5;
                 if (clinkSoundThrottle <= 0) {
                   soundManager.playBoing();
                   clinkSoundThrottle = 0.07;
@@ -578,53 +610,75 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
               }
             });
 
-            // Winner Gate opens when elapsedSec >= 86% of duration (marble lands into winner cup)
-            if (elapsedSec >= DROP_DURATION * 0.86) {
-              if (m.y >= finishY + 8 && m.x >= slotX && m.x <= slotX + slotWidth) {
+            // Gentle center drift near the finish
+            if (elapsedSec >= DROP_DURATION * 0.72 && winnerMarbleRef.current === null) {
+              const dxCenter = width / 2 - m.x;
+              m.vx += dxCenter * 0.012;
+            }
+
+            // EXACTLY 1 MARBLE ENTERS THE BASKET ("HS được chọn")
+            if (winnerMarbleRef.current === null && elapsedSec >= DROP_DURATION * 0.75) {
+              if (m.y >= finishY + 4 && m.x >= slotX + 8 && m.x <= slotX + slotWidth - 8) {
+                winnerMarbleRef.current = m;
                 m.finished = true;
                 m.finishTime = currentTime;
+                m.x = width / 2;
+                m.y = finishY + 22;
                 m.vx = 0;
                 m.vy = 0;
 
                 const matched = contestants.find((c) => c.id === m.id);
-                if (matched && !finishOrderRef.current.some((w) => w.id === matched.id)) {
-                  finishOrderRef.current.push(matched);
+                if (matched) {
+                  finishOrderRef.current = [matched];
                   soundManager.playPointAdd();
                 }
               }
             }
 
-            // Bottom bounce before 86% of duration
-            if (elapsedSec < DROP_DURATION * 0.86 && m.y > height - m.radius - 12) {
+            // Once 1 marble is in the basket, ALL OTHER MARBLES bounce off the closed lid!
+            if (winnerMarbleRef.current !== null && m.id !== winnerMarbleRef.current.id) {
+              if (m.y + m.radius >= finishY && m.x >= slotX - 10 && m.x <= slotX + slotWidth + 10) {
+                m.y = finishY - m.radius - 2;
+                m.vy = -Math.abs(m.vy) * 0.5 - 2;
+                m.vx += (m.x < width / 2 ? -3 : 3);
+              }
+            }
+
+            // Bottom floor bounce for non-winner marbles
+            if (m.y > height - m.radius - 12) {
               m.y = height - m.radius - 12;
-              m.vy = -Math.abs(m.vy) * 0.75 - 4;
-              m.vx += (Math.random() - 0.5) * 6;
+              m.vy = -Math.abs(m.vy) * 0.5;
+              m.vx *= 0.94;
             }
           }
         });
 
-        // Target duration reached OR required winners in cup at end of drop
-        const needed = Math.min(batchCount, contestants.length);
-        const reachedAtEnd = finishOrderRef.current.length >= needed && elapsedSec >= DROP_DURATION * 0.92;
+        // Target duration reached OR 1 marble in basket at end of drop
+        const reachedAtEnd = winnerMarbleRef.current !== null && elapsedSec >= DROP_DURATION * 0.92;
         const timeExpired = elapsedSec >= DROP_DURATION;
 
         if ((reachedAtEnd || timeExpired) && gameState === 'dropping') {
-          // If time is up, pick marbles closest to the winner cup
-          if (finishOrderRef.current.length < needed) {
+          // If no marble entered yet, safely place the closest marble into the basket
+          if (winnerMarbleRef.current === null) {
             const sorted = [...marbles].sort((a, b) => {
               const distA = Math.hypot(a.x - width / 2, a.y - finishY);
               const distB = Math.hypot(b.x - width / 2, b.y - finishY);
               return distA - distB;
             });
-            sorted.forEach((m) => {
-              const matched = contestants.find((c) => c.id === m.id);
-              if (matched && !finishOrderRef.current.some((w) => w.id === matched.id)) {
-                finishOrderRef.current.push(matched);
-              }
-            });
+            const chosen = sorted[0] || marbles[0];
+            if (chosen) {
+              chosen.finished = true;
+              chosen.x = width / 2;
+              chosen.y = finishY + 22;
+              chosen.vx = 0;
+              chosen.vy = 0;
+              winnerMarbleRef.current = chosen;
+              const matched = contestants.find((c) => c.id === chosen.id);
+              if (matched) finishOrderRef.current = [matched];
+            }
           }
 
-          const finalWinners = finishOrderRef.current.slice(0, needed);
+          const finalWinners = finishOrderRef.current.slice(0, 1);
           setWinners(finalWinners);
           setGameState('finished');
           setSecondsRemaining(0);
@@ -836,15 +890,15 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
 
       {/* Winner Spotlight Banner in Header if finished */}
       {gameState === 'finished' && winners.length > 0 && (
-        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-indigo-500/20 border-2 border-purple-400/60 flex items-center justify-between gap-3 animate-in fade-in">
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-purple-500/20 to-indigo-500/20 border-2 border-emerald-400/60 flex items-center justify-between gap-3 animate-in fade-in">
           <div className="flex items-center gap-3">
             <Trophy className="w-6 h-6 text-amber-400 shrink-0" />
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-purple-300 block">
-                🏆 NGƯỜI CHIẾN THẮNG VỪA RƠI VÀO CÚP:
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-300 block">
+                🎯 HS ĐƯỢC CHỌN (VIÊN BI DUY NHẤT VÀO GIỎ):
               </span>
               <span className="text-lg sm:text-2xl font-black font-display text-white">
-                {winners.map((w) => (w.number ? `${w.studentName} (Số #${w.number})` : w.studentName)).join(' · ')}
+                {winners[0]?.number ? `${winners[0].studentName} (Số #${winners[0].number})` : winners[0]?.studentName}
               </span>
             </div>
           </div>
@@ -912,21 +966,21 @@ export const MarbleDropGame: React.FC<MarbleDropGameProps> = ({
               <Trophy className="w-10 h-10 text-amber-400" />
             </div>
 
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/20 border border-purple-400/40 text-purple-300 text-sm font-black uppercase tracking-widest mb-3">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-sm font-black uppercase tracking-widest mb-3">
               <Sparkles className="w-4 h-4" />
-              <span>🏆 NGƯỜI CHIẾN THẮNG THẢ BI 🏆</span>
+              <span>🎯 HS ĐƯỢC CHỌN 🎯</span>
             </div>
 
             {/* Winner Card Showing FULL STUDENT NAME in Huge Typography */}
             <div className="flex items-center gap-6 flex-wrap justify-center my-4 w-full max-w-2xl">
-              {winners.map((winner, idx) => (
+              {winners.slice(0, 1).map((winner, idx) => (
                 <div
                   key={idx}
                   className="flex-1 min-w-[280px] px-8 py-6 rounded-3xl bg-gradient-to-b from-indigo-600 via-purple-600 to-pink-600 text-white shadow-2xl border-4 border-white transform scale-105"
                 >
                   <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-purple-300/30">
-                    <span className="text-xs font-black uppercase tracking-wider text-purple-200">
-                      {winners.length > 1 ? `HẠNG ${idx + 1}` : '🏆 VIÊN BI QUÁN QUÂN'}
+                    <span className="text-xs font-black uppercase tracking-wider text-emerald-200">
+                      🧺 VIÊN BI DUY NHẤT VÀO GIỎ
                     </span>
                     {winner.number && (
                       <span className="text-xs font-black bg-slate-950 text-amber-300 px-2.5 py-0.5 rounded-full font-display">
