@@ -2,6 +2,7 @@ import React from 'react';
 import { Volume2, VolumeX, Maximize2, Minimize2, Sun, Moon, School, FolderOpen } from 'lucide-react';
 import { soundManager } from '../services/sound';
 import { SavedClass } from '../types';
+import { sortClassesByGrade } from '../services/classStorage';
 
 interface HeaderProps {
   studentCount?: number;
@@ -83,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'bg-slate-900 border border-slate-700 text-emerald-300'
               }`}
             >
-              {savedClasses.map((cls) => (
+              {sortClassesByGrade(savedClasses).map((cls) => (
                 <option key={cls.id} value={cls.id}>
                   {cls.name}
                 </option>

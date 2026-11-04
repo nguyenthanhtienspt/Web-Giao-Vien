@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { X, Plus, Trash2, Edit2, Check, Download, Upload, School, Users, CheckCircle2, Copy, FileSpreadsheet } from 'lucide-react';
+import { X, Plus, Trash2, Edit2, Check, Download, Upload, School, Users, CheckCircle2, Copy, FileSpreadsheet, ArrowUpDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { SavedClass } from '../types';
-import { classStorage } from '../services/classStorage';
+import { classStorage, sortVietnameseStudentNames, sortClassesByGrade } from '../services/classStorage';
 
 interface ClassManagerModalProps {
   isOpen: boolean;
@@ -112,13 +112,15 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
         return;
       }
 
+      const sortedStudents = sortVietnameseStudentNames(students);
+
       // Automatically fill the edit form with the parsed class data
       setIsEditing(true);
       setEditingId(null);
       setFormName(detectedClassName);
-      setFormCount(students.length);
-      setFormStudentsText(students.join('\n'));
-      alert(`Đã đọc thành công ${students.length} học sinh từ file "${file.name}"! Thầy hãy kiểm tra và nhấn "Thêm lớp mới" nhé.`);
+      setFormCount(sortedStudents.length);
+      setFormStudentsText(sortedStudents.join('\n'));
+      alert(`Đã đọc và sắp xếp thành công ${sortedStudents.length} học sinh theo thứ tự A-Z từ file "${file.name}"! Thầy hãy kiểm tra và nhấn "Thêm lớp mới" nhé.`);
     } catch (err) {
       console.error('Lỗi khi đọc file Excel:', err);
       alert('Không thể đọc file Excel này. Vui lòng kiểm tra file định dạng .xlsx, .xls hoặc .csv!');
@@ -160,10 +162,11 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
       return;
     }
 
-    const students = formStudentsText
+    const rawStudents = formStudentsText
       .split('\n')
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
+    const students = sortVietnameseStudentNames(rawStudents);
 
     // Auto-adjust count if student list exceeds count
     const finalCount = Math.max(formCount, students.length || formCount);
@@ -343,6 +346,19 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
                       <FileSpreadsheet className="w-3.5 h-3.5" />
                       <span>Nạp từ file Excel</span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const raw = formStudentsText.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
+                        const sorted = sortVietnameseStudentNames(raw);
+                        setFormStudentsText(sorted.join('\n'));
+                      }}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 flex items-center gap-1 cursor-pointer font-bold"
+                      title="Sắp xếp danh sách tên học sinh theo thứ tự bảng chữ cái tiếng Việt (Tên A-Z)"
+                    >
+                      <ArrowUpDown className="w-3.5 h-3.5" />
+                      <span>Sắp xếp A-Z</span>
+                    </button>
                     <span className="text-xs font-mono text-indigo-400">
                       {formStudentsText.split('\n').filter((s) => s.trim().length > 0).length} tên
                     </span>
@@ -406,7 +422,7 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
 
               {/* Grid of Classes */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {classes.map((cls) => {
+                {sortClassesByGrade(classes).map((cls) => {
                   const isActive = activeClass?.id === cls.id;
 
                   return (

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { RotateCcw, Shuffle, Sparkles, CheckCircle2, Layers, FileText, Hash, Edit3, X, Check, Trash2, CheckSquare, Square, CheckCheck, RefreshCw, AlertCircle, Play, Trophy, Maximize2, Minimize2 } from 'lucide-react';
+import { RotateCcw, Shuffle, Sparkles, CheckCircle2, Layers, FileText, Hash, Edit3, X, Check, Trash2, CheckSquare, Square, CheckCheck, RefreshCw, AlertCircle, Play, Trophy, Maximize2, Minimize2, ArrowUpDown } from 'lucide-react';
 import { soundManager } from '../services/sound';
 import { SavedClass } from '../types';
+import { sortVietnameseStudentNames } from '../services/classStorage';
 import { DuckRaceGame } from './DuckRaceGame';
 import { MarbleDropGame } from './MarbleDropGame';
 import { CarRaceGame } from './CarRaceGame';
@@ -1496,6 +1497,19 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
                   className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 text-xs font-semibold cursor-pointer"
                 >
                   Mẫu câu hỏi bài học
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const lines = editorText.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+                    const sorted = sortVietnameseStudentNames(lines);
+                    setEditorText(sorted.join('\n'));
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                  title="Sắp xếp danh sách theo thứ tự bảng chữ cái tiếng Việt (Tên A-Z)"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5" />
+                  <span>Sắp xếp A-Z</span>
                 </button>
                 <button
                   type="button"
