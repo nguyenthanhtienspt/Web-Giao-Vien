@@ -77,7 +77,7 @@ export const Header: React.FC<HeaderProps> = ({
                 if (found) onSelectClass(found);
               }}
               aria-label="Chọn lớp học đã lưu"
-              className={`text-xs sm:text-sm font-black rounded-lg px-2 py-1 outline-none cursor-pointer max-w-[130px] truncate ${
+              className={`text-xs sm:text-sm font-black rounded-lg px-2 py-1 outline-none cursor-pointer ${
                 isLightMode 
                   ? 'bg-white border border-slate-300 text-indigo-900' 
                   : 'bg-slate-900 border border-slate-700 text-emerald-300'
@@ -85,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               {savedClasses.map((cls) => (
                 <option key={cls.id} value={cls.id}>
-                  {cls.name} ({cls.studentCount} HS)
+                  {cls.name}
                 </option>
               ))}
             </select>
