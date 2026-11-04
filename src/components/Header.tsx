@@ -49,13 +49,8 @@ export const Header: React.FC<HeaderProps> = ({
             TL
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight font-display flex items-center gap-2">
-              <span>TRỢ LÝ LỚP HỌC</span>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
-                isLightMode ? 'bg-indigo-100 text-indigo-700' : 'bg-indigo-950 text-indigo-300 border border-indigo-700/50'
-              }`}>
-                THCS · MÁY CHIẾU
-              </span>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight font-display">
+              TRỢ LÝ LỚP HỌC
             </h1>
           </div>
         </div>
