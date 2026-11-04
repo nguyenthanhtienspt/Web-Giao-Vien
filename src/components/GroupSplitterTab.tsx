@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users2, Shuffle, Star, Copy, Check, Sparkles, Maximize2, X, Hash, FileText } from 'lucide-react';
+import { Users2, Shuffle, Star, Copy, Check, Sparkles, Maximize2, X, Hash, FileText, Crown, GripVertical } from 'lucide-react';
 import { GroupItem } from '../types';
 import { soundManager } from '../services/sound';
 
@@ -34,6 +34,13 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
   const [groups, setGroups] = useState<GroupItem[]>([]);
   const [copied, setCopied] = useState<boolean>(false);
   const [spotlightGroup, setSpotlightGroup] = useState<GroupItem | null>(null);
+
+  // Drag and drop states for moving student cards between groups
+  const [draggedMember, setDraggedMember] = useState<{
+    member: number | string;
+    sourceGroupId: number;
+  } | null>(null);
+  const [dragOverGroupId, setDragOverGroupId] = useState<number | null>(null);
 
   // Helper to split items into groups
   const performSplit = () => {
@@ -93,6 +100,149 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
   useEffect(() => {
     performSplit();
   }, [studentCount, groupCount, sourceType]);
+
+  // Sync spotlightGroup when groups change
+  useEffect(() => {
+    if (spotlightGroup) {
+      const found = groups.find((g) => g.id === spotlightGroup.id);
+      if (found) setSpotlightGroup(found);
+    }
+  }, [groups]);
+
+  // Move a member from source group to target group
+  const moveMemberToGroup = (
+    member: number | string,
+    sourceGroupId: number,
+    targetGroupId: number
+  ) => {
+    if (sourceGroupId === targetGroupId) return;
+
+    setGroups((prevGroups) => {
+      return prevGroups.map((group) => {
+        if (group.id === sourceGroupId) {
+          const nextMembers = group.members.filter((m) => m !== member);
+          const nextLeader = group.leader === member ? undefined : group.leader;
+          return {
+            ...group,
+            members: nextMembers,
+            leader: nextLeader,
+          };
+        }
+        if (group.id === targetGroupId) {
+          if (group.members.includes(member)) return group;
+          const nextMembers = [...group.members, member];
+          if (sourceType === 'numbers') {
+            nextMembers.sort((a, b) => (a as number) - (b as number));
+          }
+          return {
+            ...group,
+            members: nextMembers,
+          };
+        }
+        return group;
+      });
+    });
+
+    soundManager.playPointAdd();
+  };
+
+  // Drag & drop handlers
+  const handleDragStart = (
+    e: React.DragEvent,
+    member: number | string,
+    sourceGroupId: number
+  ) => {
+    e.dataTransfer.setData(
+      'text/plain',
+      JSON.stringify({ member, sourceGroupId })
+    );
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedMember({ member, sourceGroupId });
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetGroupId: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverGroupId !== targetGroupId) {
+      setDragOverGroupId(targetGroupId);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent, targetGroupId: number) => {
+    const related = e.relatedTarget as HTMLElement;
+    const currentTarget = e.currentTarget as HTMLElement;
+    if (!currentTarget || !related || !currentTarget.contains(related)) {
+      if (dragOverGroupId === targetGroupId) {
+        setDragOverGroupId(null);
+      }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetGroupId: number) => {
+    e.preventDefault();
+    setDragOverGroupId(null);
+
+    let member = draggedMember?.member;
+    let sourceGroupId = draggedMember?.sourceGroupId;
+
+    if (!member || sourceGroupId === undefined) {
+      try {
+        const raw = e.dataTransfer.getData('text/plain');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          member = parsed.member;
+          sourceGroupId = parsed.sourceGroupId;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (member !== undefined && sourceGroupId !== undefined) {
+      moveMemberToGroup(member, sourceGroupId, targetGroupId);
+    }
+    setDraggedMember(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedMember(null);
+    setDragOverGroupId(null);
+  };
+
+  // Teacher manual leader selection
+  const handleToggleLeader = (groupId: number, member: number | string) => {
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        const isCurrentLeader = g.leader === member;
+        return {
+          ...g,
+          leader: isCurrentLeader ? undefined : member,
+        };
+      })
+    );
+    soundManager.playPointAdd();
+  };
+
+  const handleSelectLeaderDropdown = (
+    groupId: number,
+    selectedValue: string
+  ) => {
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        if (!selectedValue) {
+          return { ...g, leader: undefined };
+        }
+        const found = g.members.find((m) => String(m) === selectedValue);
+        return {
+          ...g,
+          leader: found !== undefined ? found : undefined,
+        };
+      })
+    );
+    soundManager.playPointAdd();
+  };
 
   const handleCopy = () => {
     if (groups.length === 0) return;
@@ -229,14 +379,21 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
         </div>
       </div>
 
-      {/* Summary Kicker */}
-      <div className="flex items-center justify-between text-xs sm:text-sm text-slate-400 px-2">
-        <span>
-          Chia ngẫu nhiên <strong className="text-white font-bold">{totalPoolSize} {sourceType === 'numbers' ? 'học sinh' : 'mục'}</strong> thành <strong className="text-white font-bold">{groups.length} nhóm</strong>
-        </span>
-        <span>
-          Trung bình ~{Math.floor(totalPoolSize / groups.length)}–{Math.ceil(totalPoolSize / groups.length)} thành viên / nhóm
-        </span>
+      {/* Summary Kicker & Teacher Hint */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs sm:text-sm text-slate-400 px-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span>
+            Chia ngẫu nhiên <strong className="text-white font-bold">{totalPoolSize} {sourceType === 'numbers' ? 'học sinh' : 'mục'}</strong> thành <strong className="text-white font-bold">{groups.length} nhóm</strong>
+          </span>
+          <span className="hidden sm:inline text-slate-600">•</span>
+          <span>
+            Trung bình ~{Math.floor(totalPoolSize / groups.length)}–{Math.ceil(totalPoolSize / groups.length)} thành viên / nhóm
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 px-3 py-1 rounded-full w-fit">
+          <GripVertical className="w-3.5 h-3.5" />
+          <span>Kéo thả thẻ học sinh để đổi nhóm • Bấm 👑 để chọn nhóm trưởng</span>
+        </div>
       </div>
 
       {/* 8 Groups Grid (Optimized for Projector) */}
@@ -248,13 +405,20 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
             : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
       }`}>
         {groups.map((group) => {
+          const isDragOver = dragOverGroupId === group.id;
+
           return (
             <div
               key={group.id}
-              className={`rounded-2xl border-2 overflow-hidden transition-all duration-200 hover:scale-[1.02] flex flex-col ${
-                isLightMode 
-                  ? 'bg-white shadow-md border-slate-300' 
-                  : 'bg-slate-900/90 shadow-xl border-slate-800'
+              onDragOver={(e) => handleDragOver(e, group.id)}
+              onDragLeave={(e) => handleDragLeave(e, group.id)}
+              onDrop={(e) => handleDrop(e, group.id)}
+              className={`rounded-2xl border-2 overflow-hidden transition-all duration-200 flex flex-col ${
+                isDragOver
+                  ? 'ring-4 ring-indigo-500 scale-[1.02] border-indigo-400 bg-indigo-950/30'
+                  : isLightMode 
+                    ? 'bg-white shadow-md border-slate-300 hover:border-slate-400' 
+                    : 'bg-slate-900/90 shadow-xl border-slate-800 hover:border-slate-700'
               }`}
             >
               {/* Group Header */}
@@ -293,50 +457,93 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
 
               {/* Group Member Numbers / Names */}
               <div className="p-4 flex-1 flex flex-col justify-between gap-3">
-                <div className="flex flex-wrap gap-2 items-center">
+                <div className="flex flex-wrap gap-2 items-center min-h-[50px]">
                   {group.members.map((member, idx) => {
                     const isLeader = group.leader === member;
                     const isNumber = typeof member === 'number';
+                    const isBeingDragged =
+                      draggedMember?.member === member &&
+                      draggedMember?.sourceGroupId === group.id;
 
                     return (
                       <div
                         key={idx}
-                        className={`relative rounded-xl font-display font-black flex items-center justify-center transition-all ${
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, member, group.id)}
+                        onDragEnd={handleDragEnd}
+                        className={`group relative rounded-xl font-display font-black flex items-center gap-1.5 transition-all select-none cursor-grab active:cursor-grabbing hover:scale-105 ${
+                          isBeingDragged ? 'opacity-40 scale-95 border-dashed' : ''
+                        } ${
                           isNumber
-                            ? 'px-3.5 py-2 text-xl sm:text-2xl'
-                            : 'px-3 py-1.5 text-xs sm:text-sm font-sans font-bold'
+                            ? 'px-3 py-1.5 text-xl sm:text-2xl'
+                            : 'px-2.5 py-1.5 text-xs sm:text-sm font-sans font-bold'
                         } ${
                           isLeader
                             ? isLightMode
                               ? 'bg-amber-100 text-amber-900 border-2 border-amber-400 ring-2 ring-amber-300/50 shadow-md'
                               : 'bg-amber-950/80 text-amber-300 border-2 border-amber-400 ring-2 ring-amber-400/40 shadow-lg'
                             : isLightMode
-                              ? 'bg-slate-100 text-slate-900 border border-slate-300'
-                              : 'bg-slate-800 text-slate-100 border border-slate-700'
+                              ? 'bg-slate-100 text-slate-900 border border-slate-300 hover:bg-slate-200'
+                              : 'bg-slate-800 text-slate-100 border border-slate-700 hover:bg-slate-750'
                         }`}
+                        title="Kéo thả sang nhóm khác hoặc bấm biểu tượng vương miện để chọn nhóm trưởng"
                       >
-                        <span className={isNumber ? 'tabular-nums' : 'truncate max-w-[140px]'}>
+                        <GripVertical className="w-3 h-3 opacity-30 group-hover:opacity-80 transition-opacity -ml-0.5" />
+                        <span className={isNumber ? 'tabular-nums' : 'truncate max-w-[130px]'}>
                           {member}
                         </span>
-                        {isLeader && (
-                          <span
-                            className="absolute -top-2 -right-1.5 text-xs bg-amber-400 text-amber-950 px-1 rounded-full font-bold shadow flex items-center"
-                            title="Nhóm trưởng"
-                          >
-                            ⭐
-                          </span>
-                        )}
+                        
+                        {/* Quick Crown button to toggle leader */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleLeader(group.id, member);
+                          }}
+                          className={`p-1 rounded-full transition-transform hover:scale-125 cursor-pointer ${
+                            isLeader 
+                              ? 'text-amber-500 bg-amber-400/20' 
+                              : 'text-slate-400 opacity-40 hover:opacity-100 hover:text-amber-400'
+                          }`}
+                          title={isLeader ? 'Hủy nhóm trưởng' : 'Đặt làm nhóm trưởng'}
+                        >
+                          <Crown className={`w-3.5 h-3.5 ${isLeader ? 'fill-amber-400' : ''}`} />
+                        </button>
                       </div>
                     );
                   })}
+
+                  {/* Visual Drop Target Placeholder */}
+                  {isDragOver && (
+                    <div className="w-full py-2 border-2 border-dashed border-indigo-400 rounded-xl bg-indigo-500/10 text-center text-xs font-bold text-indigo-300 animate-pulse">
+                      📥 Thả học sinh vào đây
+                    </div>
+                  )}
                 </div>
 
-                {group.leader && (
-                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800 text-xs font-semibold text-amber-400 flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 fill-amber-400" />
-                    <span>Nhóm trưởng: {typeof group.leader === 'number' ? `Số ${group.leader}` : group.leader}</span>
+                {/* Footer with Group Leader Selector */}
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-1 font-bold text-amber-500 min-w-fit">
+                    <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                    <span>Trưởng nhóm:</span>
                   </div>
-                )}
+                  <select
+                    value={group.leader !== undefined ? String(group.leader) : ''}
+                    onChange={(e) => handleSelectLeaderDropdown(group.id, e.target.value)}
+                    className={`flex-1 px-2 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer truncate ${
+                      isLightMode
+                        ? 'bg-slate-50 border-slate-300 text-slate-800 focus:bg-white'
+                        : 'bg-slate-800 border-slate-700 text-slate-200 focus:bg-slate-700'
+                    }`}
+                  >
+                    <option value="">-- Chưa chọn --</option>
+                    {group.members.map((m, idx) => (
+                      <option key={idx} value={String(m)}>
+                        {typeof m === 'number' ? `Số ${m}` : m}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           );
@@ -365,9 +572,12 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
             </div>
 
             <div className="p-8 sm:p-12 text-center">
-              <span className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-6 block">
+              <span className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-2 block">
                 DANH SÁCH THÀNH VIÊN TRONG NHÓM
               </span>
+              <p className="text-xs text-amber-400 mb-6">
+                💡 Bấm trực tiếp vào thành viên để đặt hoặc đổi Nhóm trưởng 👑
+              </p>
               
               <div className="flex flex-wrap justify-center gap-3 sm:gap-4 my-6">
                 {spotlightGroup.members.map((member, idx) => {
@@ -375,9 +585,11 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
                   const isNumber = typeof member === 'number';
 
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={idx}
-                      className={`relative rounded-2xl font-black font-display shadow-xl ${
+                      onClick={() => handleToggleLeader(spotlightGroup.id, member)}
+                      className={`relative rounded-2xl font-black font-display shadow-xl transition-transform hover:scale-105 active:scale-95 cursor-pointer ${
                         isNumber
                           ? 'px-8 py-6 text-5xl sm:text-7xl tabular-nums'
                           : 'px-6 py-4 text-xl sm:text-2xl font-sans'
@@ -385,17 +597,21 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
                         isLeader
                           ? 'bg-amber-400 text-amber-950 ring-8 ring-amber-300'
                           : isLightMode
-                            ? 'bg-slate-100 text-slate-900 border-2 border-slate-300'
-                            : 'bg-slate-800 text-white border-2 border-slate-700'
+                            ? 'bg-slate-100 text-slate-900 border-2 border-slate-300 hover:border-amber-400'
+                            : 'bg-slate-800 text-white border-2 border-slate-700 hover:border-amber-400'
                       }`}
+                      title={isLeader ? 'Bấm để hủy nhóm trưởng' : 'Bấm để chọn làm nhóm trưởng'}
                     >
-                      {member}
+                      <div className="flex items-center gap-2">
+                        {isLeader && <Crown className="w-6 h-6 fill-amber-950 text-amber-950 inline-block" />}
+                        <span>{member}</span>
+                      </div>
                       {isLeader && (
                         <span className="absolute -top-3 -right-2 text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-bold shadow">
                           Nhóm trưởng
                         </span>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
