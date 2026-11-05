@@ -35,6 +35,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isLightMo
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Detect OAuth error redirected from Supabase in URL hash/query
+  React.useEffect(() => {
+    const raw = (window.location.hash || '') + (window.location.search || '');
+    if (
+      raw.includes('provider+is+not+enabled') ||
+      raw.includes('provider_not_enabled') ||
+      raw.includes('Unsupported+provider') ||
+      raw.includes('validation_failed')
+    ) {
+      setMessage({
+        type: 'error',
+        text: 'Đăng nhập Google chưa được bật trên Supabase. Thầy/Cô dùng mục Đăng ký / Đăng nhập bằng Email & Mật khẩu bên dưới nhé!',
+      });
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
+
   if (!isOpen) return null;
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -50,12 +67,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isLightMo
     setLoading(false);
 
     if (error) {
-      setMessage({
-        type: 'error',
-        text: error.message.includes('Invalid login')
-          ? 'Email hoặc mật khẩu không chính xác'
-          : `Lỗi: ${error.message}`,
-      });
+      if (error.message?.includes('Email not confirmed')) {
+        setMessage({
+          type: 'error',
+          text: 'Email này chưa xác nhận. Thầy/Cô vui lòng kiểm tra hộp thư email để bấm xác nhận (hoặc vào Supabase -> Auth -> Providers -> Email và TẮT "Confirm email" để đăng nhập được ngay).',
+        });
+      } else if (error.message?.includes('Invalid login')) {
+        setMessage({
+          type: 'error',
+          text: 'Email hoặc mật khẩu không chính xác.',
+        });
+      } else {
+        setMessage({
+          type: 'error',
+          text: `Lỗi: ${error.message}`,
+        });
+      }
     } else {
       setMessage({ type: 'success', text: 'Đăng nhập thành công!' });
       setTimeout(() => {
@@ -86,11 +113,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isLightMo
     } else {
       setMessage({
         type: 'success',
-        text: 'Tạo tài khoản thành công! Thầy/Cô có thể đăng nhập ngay.',
+        text: 'Tạo tài khoản thành công! Thầy/Cô có thể đăng nhập ngay bằng Email và Mật khẩu vừa tạo.',
       });
       setTimeout(() => {
         setActiveTab('signin');
-        setMessage(null);
       }, 1500);
     }
   };
@@ -101,7 +127,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, isLightMo
     const { error } = await signInWithGoogle();
     if (error) {
       setLoading(false);
-      setMessage({ type: 'error', text: `Lỗi đăng nhập Google: ${error.message}` });
+      if (error.message?.includes('provider is not enabled') || error.message?.includes('validation_failed')) {
+        setMessage({
+          type: 'error',
+          text: 'Google Sign-In chưa được bật trong Supabase. Thầy/Cô vui lòng dùng Email & Mật khẩu bên dưới ạ.',
+        });
+      } else {
+        setMessage({ type: 'error', text: `Lỗi đăng nhập Google: ${error.message}` });
+      }
     }
   };
 

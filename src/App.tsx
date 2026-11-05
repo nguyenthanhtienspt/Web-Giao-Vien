@@ -171,6 +171,17 @@ function AppContent() {
 
   // Keyboard number shortcuts to switch tabs: 1, 2, 3, 4
   useEffect(() => {
+    // If URL has OAuth error from Google provider being disabled
+    const raw = (window.location.hash || '') + (window.location.search || '');
+    if (
+      raw.includes('provider+is+not+enabled') ||
+      raw.includes('provider_not_enabled') ||
+      raw.includes('Unsupported+provider') ||
+      raw.includes('validation_failed')
+    ) {
+      setIsAuthModalOpen(true);
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
         return;
