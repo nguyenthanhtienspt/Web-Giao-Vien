@@ -3,6 +3,7 @@ import { Volume2, VolumeX, Maximize2, Minimize2, Sun, Moon, School, FolderOpen }
 import { soundManager } from '../services/sound';
 import { SavedClass } from '../types';
 import { sortClassesByGrade } from '../services/classStorage';
+import { UserMenu } from './UserMenu';
 
 interface HeaderProps {
   studentCount?: number;
@@ -17,6 +18,9 @@ interface HeaderProps {
   savedClasses: SavedClass[];
   onSelectClass: (cls: SavedClass) => void;
   onOpenClassManager: () => void;
+  onOpenAuthModal: () => void;
+  onSyncToCloud?: () => void;
+  isSyncing?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,6 +34,9 @@ export const Header: React.FC<HeaderProps> = ({
   savedClasses,
   onSelectClass,
   onOpenClassManager,
+  onOpenAuthModal,
+  onSyncToCloud,
+  isSyncing,
 }) => {
   const handleToggleSound = () => {
     const newState = soundManager.toggle();
@@ -135,6 +142,14 @@ export const Header: React.FC<HeaderProps> = ({
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             <span className="hidden sm:inline">{isFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'}</span>
           </button>
+
+          {/* Teacher Account Menu */}
+          <UserMenu
+            onOpenAuthModal={onOpenAuthModal}
+            isLightMode={isLightMode}
+            onSyncToCloud={onSyncToCloud}
+            isSyncing={isSyncing}
+          />
         </div>
       </div>
     </header>

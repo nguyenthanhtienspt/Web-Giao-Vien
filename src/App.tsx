@@ -11,11 +11,16 @@ import { GroupSplitterTab } from './components/GroupSplitterTab';
 import { CountdownTimerTab } from './components/CountdownTimerTab';
 import { ScoreboardTab } from './components/ScoreboardTab';
 import { ClassManagerModal } from './components/ClassManagerModal';
+import { AuthModal } from './components/AuthModal';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { TabId, SavedClass } from './types';
 import { classStorage } from './services/classStorage';
+import { cloudClassStorage } from './services/cloudClassStorage';
 
-export default function App() {
-  // Saved classes state (persisted locally on device)
+function AppContent() {
+  const { user } = useAuth();
+
+  // Saved classes state (persisted locally on device + synced to Cloud when logged in)
   const [savedClasses, setSavedClasses] = useState<SavedClass[]>(() => classStorage.getClasses());
   const [activeClass, setActiveClass] = useState<SavedClass | null>(() => {
     const classes = classStorage.getClasses();
@@ -24,6 +29,8 @@ export default function App() {
   });
 
   const [isClassManagerOpen, setIsClassManagerOpen] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   // Global states synced with active class
   const [studentCount, setStudentCount] = useState<number>(() => activeClass?.studentCount || 40);
@@ -65,6 +72,41 @@ export default function App() {
     }
   };
 
+  // Sync classes from Cloud on teacher login
+  useEffect(() => {
+    if (!user) return;
+
+    let isMounted = true;
+    const loadCloudClasses = async () => {
+      setIsSyncing(true);
+      const cloudClasses = await cloudClassStorage.getClassesFromCloud(user.id);
+      if (!isMounted) return;
+      setIsSyncing(false);
+
+      if (cloudClasses && cloudClasses.length > 0) {
+        // Teacher has classes stored in cloud
+        setSavedClasses(cloudClasses);
+        cloudClasses.forEach((c) => classStorage.updateClass(c));
+        const activeId = classStorage.getActiveClassId();
+        const currentActive = cloudClasses.find((c) => c.id === activeId) || cloudClasses[0];
+        handleSelectClass(currentActive);
+      } else if (cloudClasses && cloudClasses.length === 0) {
+        // New account with 0 classes -> upload current local classes as initial backup
+        const local = classStorage.getClasses();
+        if (local.length > 0) {
+          setIsSyncing(true);
+          await cloudClassStorage.syncAllClassesToCloud(user.id, local);
+          if (isMounted) setIsSyncing(false);
+        }
+      }
+    };
+
+    loadCloudClasses();
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
   // Save current student list directly to active class
   const handleSaveToActiveClass = (students: string[]) => {
     if (!activeClass) return;
@@ -79,7 +121,30 @@ export default function App() {
     setSavedClasses(classStorage.getClasses());
     setCustomList(students);
     setStudentCount(updated.studentCount);
+
+    if (user) {
+      cloudClassStorage.saveClassToCloud(user.id, updated);
+    }
+
     alert(`Đã lưu danh sách ${students.length} học sinh vào "${updated.name}" thành công!`);
+  };
+
+  // Manual trigger to sync all local classes to Cloud
+  const handleSyncToCloud = async () => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setIsSyncing(true);
+    const target = classStorage.getClasses();
+    const ok = await cloudClassStorage.syncAllClassesToCloud(user.id, target);
+    setIsSyncing(false);
+
+    if (ok) {
+      alert(`Đã đồng bộ thành công ${target.length} lớp học lên Cloud của Thầy/Cô!`);
+    } else {
+      alert('Không thể kết nối đến Cloud. Dữ liệu vẫn được lưu an toàn trên máy tính này.');
+    }
   };
 
   // Fullscreen toggle handler
@@ -144,6 +209,9 @@ export default function App() {
         savedClasses={savedClasses}
         onSelectClass={handleSelectClass}
         onOpenClassManager={() => setIsClassManagerOpen(true)}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onSyncToCloud={handleSyncToCloud}
+        isSyncing={isSyncing}
       />
 
       {/* 4 Feature Tabs Navigation */}
@@ -189,10 +257,21 @@ export default function App() {
         isOpen={isClassManagerOpen}
         onClose={() => {
           setIsClassManagerOpen(false);
-          setSavedClasses(classStorage.getClasses());
+          const current = classStorage.getClasses();
+          setSavedClasses(current);
+          if (user) {
+            cloudClassStorage.syncAllClassesToCloud(user.id, current);
+          }
         }}
         activeClass={activeClass}
         onSelectClass={handleSelectClass}
+        isLightMode={isLightMode}
+      />
+
+      {/* Teacher Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
         isLightMode={isLightMode}
       />
 
@@ -208,10 +287,21 @@ export default function App() {
           </span>
           <div className="flex items-center gap-4">
             <span>Phím tắt nhanh: <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200">1</kbd>–<kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200">4</kbd> chuyển thẻ · <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200">Space</kbd> Thao tác</span>
-            <span>Đã lưu trên thiết bị</span>
+            <span className="flex items-center gap-1">
+              <span className={`w-2 h-2 rounded-full ${user ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+              <span>{user ? 'Đã kết nối Cloud' : 'Lưu cục bộ trên thiết bị'}</span>
+            </span>
           </div>
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
