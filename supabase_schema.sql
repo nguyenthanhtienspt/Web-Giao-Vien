@@ -18,13 +18,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- Chính sách: Giáo viên chỉ được xem và cập nhật hồ sơ của chính mình
-CREATE POLICY "Users can view own profile" 
-  ON public.profiles FOR SELECT 
-  USING (auth.uid() = id);
-
-CREATE POLICY "Users can update own profile" 
-  ON public.profiles FOR UPDATE 
-  USING (auth.uid() = id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Users can view own profile') THEN
+    CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Users can update own profile') THEN
+    CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+  END IF;
+END $$;
 
 -- Tự động tạo hồ sơ khi một Giáo viên mới đăng ký tài khoản (Google hoặc Email)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -36,7 +37,8 @@ BEGIN
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
     NEW.raw_user_meta_data->>'avatar_url'
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -63,21 +65,20 @@ CREATE TABLE IF NOT EXISTS public.classes (
 ALTER TABLE public.classes ENABLE ROW LEVEL SECURITY;
 
 -- Chính sách RLS: Mỗi giáo viên chỉ được Xem, Thêm, Sửa, Xoá các lớp do chính mình tạo
-CREATE POLICY "Teachers can view own classes"
-  ON public.classes FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Teachers can insert own classes"
-  ON public.classes FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Teachers can update own classes"
-  ON public.classes FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Teachers can delete own classes"
-  ON public.classes FOR DELETE
-  USING (auth.uid() = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'classes' AND policyname = 'Teachers can view own classes') THEN
+    CREATE POLICY "Teachers can view own classes" ON public.classes FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'classes' AND policyname = 'Teachers can insert own classes') THEN
+    CREATE POLICY "Teachers can insert own classes" ON public.classes FOR INSERT WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'classes' AND policyname = 'Teachers can update own classes') THEN
+    CREATE POLICY "Teachers can update own classes" ON public.classes FOR UPDATE USING (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'classes' AND policyname = 'Teachers can delete own classes') THEN
+    CREATE POLICY "Teachers can delete own classes" ON public.classes FOR DELETE USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Chỉ mục để tối ưu tốc độ tải danh sách lớp của giáo viên
 CREATE INDEX IF NOT EXISTS idx_classes_user_id ON public.classes(user_id);
