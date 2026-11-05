@@ -7,10 +7,8 @@ import { sortVietnameseStudentNames } from '../services/classStorage';
 import { DuckRaceGame } from './DuckRaceGame';
 import { MarbleDropGame } from './MarbleDropGame';
 import { CarRaceGame } from './CarRaceGame';
-import { BoatRaceGame } from './BoatRaceGame';
-import { MagicCardGame } from './MagicCardGame';
 
-export type PickerGameType = 'wheel' | 'duck' | 'marble' | 'car' | 'boat' | 'magic';
+export type PickerGameType = 'wheel' | 'duck' | 'marble' | 'car';
 
 interface RandomPickerTabProps {
   studentCount: number;
@@ -171,11 +169,7 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
             ? 'Thả viên bi Plinko'
             : pickerGameType === 'car'
               ? 'Đua siêu xe F1 Turbo'
-              : pickerGameType === 'boat'
-                ? 'Đua thuyền rồng vượt sóng'
-                : pickerGameType === 'magic'
-                  ? 'Rút thăm bài ma thuật'
-                  : 'Quay số ngẫu nhiên',
+              : 'Quay số ngẫu nhiên',
       icon:
         pickerGameType === 'duck'
           ? '🦆'
@@ -183,11 +177,7 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
             ? '🔮'
             : pickerGameType === 'car'
               ? '🏎️'
-              : pickerGameType === 'boat'
-                ? '🚣'
-                : pickerGameType === 'magic'
-                  ? '🃏'
-                  : '🎰',
+              : '🎰',
       winners: resolvedWinners,
     });
   };
@@ -528,31 +518,6 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               <span>ĐUA XE F1</span>
             </button>
 
-            {/* 5. Boat Race */}
-            <button
-              onClick={() => setPickerGameType('boat')}
-              className={`px-3.5 sm:px-4 py-2 rounded-xl font-display font-black text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-                pickerGameType === 'boat'
-                  ? 'bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 text-white shadow-md shadow-cyan-500/30 scale-[1.02]'
-                  : 'text-cyan-300 hover:text-cyan-200 hover:bg-cyan-950/30'
-              }`}
-            >
-              <span>🚣</span>
-              <span>ĐUA THUYỀN RỒNG</span>
-            </button>
-
-            {/* 6. Magic Card Draw */}
-            <button
-              onClick={() => setPickerGameType('magic')}
-              className={`px-3.5 sm:px-4 py-2 rounded-xl font-display font-black text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-                pickerGameType === 'magic'
-                  ? 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 text-white shadow-md shadow-purple-500/30 scale-[1.02]'
-                  : 'text-purple-300 hover:text-purple-200 hover:bg-purple-950/30'
-              }`}
-            >
-              <span>🃏</span>
-              <span>BÀI MA THUẬT</span>
-            </button>
 
             {/* Fullscreen Button */}
             <button
@@ -820,24 +785,6 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
                 <span>🏎️</span>
                 <span>Đua F1</span>
               </button>
-              <button
-                onClick={() => setPickerGameType('boat')}
-                className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
-                  pickerGameType === 'boat' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <span>🚣</span>
-                <span>Thuyền rồng</span>
-              </button>
-              <button
-                onClick={() => setPickerGameType('magic')}
-                className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
-                  pickerGameType === 'magic' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <span>🃏</span>
-                <span>Bài ma thuật</span>
-              </button>
             </div>
 
             <div className="flex items-center gap-3">
@@ -963,32 +910,6 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
           /* CASE D3: F1 CAR RACE GAME */
           <div className="w-full">
             <CarRaceGame
-              candidates={pickerMode === 'numbers' ? remainingNumbers : remainingCustomItems}
-              batchCount={batchCount}
-              isLightMode={isLightMode}
-              studentNames={customList}
-              onSelectWinners={handleWinnersFromMiniGame}
-              isGameFullscreen={isGameFullscreen}
-              onToggleFullscreen={toggleGameFullscreen}
-            />
-          </div>
-        ) : pickerGameType === 'boat' ? (
-          /* CASE D4: DRAGON BOAT RACE GAME */
-          <div className="w-full">
-            <BoatRaceGame
-              candidates={pickerMode === 'numbers' ? remainingNumbers : remainingCustomItems}
-              batchCount={batchCount}
-              isLightMode={isLightMode}
-              studentNames={customList}
-              onSelectWinners={handleWinnersFromMiniGame}
-              isGameFullscreen={isGameFullscreen}
-              onToggleFullscreen={toggleGameFullscreen}
-            />
-          </div>
-        ) : pickerGameType === 'magic' ? (
-          /* CASE D5: MAGIC CARDS GAME */
-          <div className="w-full">
-            <MagicCardGame
               candidates={pickerMode === 'numbers' ? remainingNumbers : remainingCustomItems}
               batchCount={batchCount}
               isLightMode={isLightMode}
