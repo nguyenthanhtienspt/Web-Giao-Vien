@@ -14,7 +14,7 @@ import { ClassManagerModal } from './components/ClassManagerModal';
 import { AuthModal } from './components/AuthModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TabId, SavedClass } from './types';
-import { classStorage } from './services/classStorage';
+import { classStorage, DEFAULT_CLASSES } from './services/classStorage';
 import { cloudClassStorage } from './services/cloudClassStorage';
 
 function AppContent() {
@@ -72,9 +72,17 @@ function AppContent() {
     }
   };
 
-  // Sync classes from Cloud on teacher login
+  // Sync classes from Cloud on teacher login / reset on logout
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // Teacher signed out -> reset local view to default
+      const defaults = classStorage.getClasses();
+      setSavedClasses(defaults);
+      if (defaults.length > 0) {
+        handleSelectClass(defaults[0]);
+      }
+      return;
+    }
 
     let isMounted = true;
     const loadCloudClasses = async () => {
@@ -84,19 +92,20 @@ function AppContent() {
       setIsSyncing(false);
 
       if (cloudClasses && cloudClasses.length > 0) {
-        // Teacher has classes stored in cloud
+        // Teacher has classes stored in cloud -> load their own classes
         setSavedClasses(cloudClasses);
-        cloudClasses.forEach((c) => classStorage.updateClass(c));
         const activeId = classStorage.getActiveClassId();
         const currentActive = cloudClasses.find((c) => c.id === activeId) || cloudClasses[0];
         handleSelectClass(currentActive);
       } else if (cloudClasses && cloudClasses.length === 0) {
-        // New account with 0 classes -> upload current local classes as initial backup
-        const local = classStorage.getClasses();
-        if (local.length > 0) {
-          setIsSyncing(true);
-          await cloudClassStorage.syncAllClassesToCloud(user.id, local);
-          if (isMounted) setIsSyncing(false);
+        // New account with 0 classes -> give them their own independent copy of DEFAULT_CLASSES
+        const initialClasses = DEFAULT_CLASSES.map((c) => ({ ...c }));
+        setIsSyncing(true);
+        await cloudClassStorage.syncAllClassesToCloud(user.id, initialClasses);
+        if (isMounted) {
+          setSavedClasses(initialClasses);
+          handleSelectClass(initialClasses[0]);
+          setIsSyncing(false);
         }
       }
     };

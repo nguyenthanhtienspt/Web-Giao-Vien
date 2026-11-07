@@ -1,6 +1,23 @@
 import { supabase } from './supabase';
 import { SavedClass } from '../types';
 
+/**
+ * Helper to ensure class IDs in the database are uniquely scoped to each user.
+ * This guarantees that multiple teachers with the same class ID (e.g. 'class_6a1')
+ * will never overwrite or conflict with each other in the database.
+ */
+function toCloudId(userId: string, classId: string): string {
+  if (classId.startsWith(`${userId}_`)) return classId;
+  return `${userId}_${classId}`;
+}
+
+function fromCloudId(userId: string, cloudId: string): string {
+  if (cloudId.startsWith(`${userId}_`)) {
+    return cloudId.slice(`${userId}_`.length);
+  }
+  return cloudId;
+}
+
 export const cloudClassStorage = {
   /**
    * Fetch all classes owned by the authenticated teacher
@@ -22,7 +39,7 @@ export const cloudClassStorage = {
       if (!data) return [];
 
       return data.map((row: any) => ({
-        id: row.id,
+        id: fromCloudId(userId, row.id),
         name: row.name,
         studentCount: row.student_count || 0,
         students: Array.isArray(row.students) ? row.students : [],
@@ -40,9 +57,10 @@ export const cloudClassStorage = {
   async saveClassToCloud(userId: string, cls: SavedClass): Promise<boolean> {
     if (!supabase) return false;
     try {
+      const cloudId = toCloudId(userId, cls.id);
       const { error } = await supabase.from('classes').upsert(
         {
-          id: cls.id,
+          id: cloudId,
           user_id: userId,
           name: cls.name,
           student_count: cls.studentCount,
@@ -69,10 +87,11 @@ export const cloudClassStorage = {
   async deleteClassFromCloud(userId: string, classId: string): Promise<boolean> {
     if (!supabase) return false;
     try {
+      const cloudId = toCloudId(userId, classId);
       const { error } = await supabase
         .from('classes')
         .delete()
-        .eq('id', classId)
+        .eq('id', cloudId)
         .eq('user_id', userId);
 
       if (error) {
@@ -87,13 +106,13 @@ export const cloudClassStorage = {
   },
 
   /**
-   * Sync a batch of classes to Cloud
+   * Sync a batch of classes to Cloud for this teacher
    */
   async syncAllClassesToCloud(userId: string, classes: SavedClass[]): Promise<boolean> {
     if (!supabase || classes.length === 0) return false;
     try {
       const payload = classes.map((cls) => ({
-        id: cls.id,
+        id: toCloudId(userId, cls.id),
         user_id: userId,
         name: cls.name,
         student_count: cls.studentCount,
