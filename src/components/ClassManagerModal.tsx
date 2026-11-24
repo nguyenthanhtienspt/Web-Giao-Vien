@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Plus, Trash2, Edit2, Check, Download, Upload, School, Users, CheckCircle2, Copy, FileSpreadsheet, ArrowUpDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { SavedClass } from '../types';
@@ -29,6 +29,14 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
   const [formStudentsText, setFormStudentsText] = useState<string>('');
   const [copiedExport, setCopiedExport] = useState<boolean>(false);
   const excelInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Always refresh class list from storage when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setClasses(classStorage.getClasses());
+      setIsEditing(false);
+    }
+  }, [isOpen]);
 
   // Excel (.xlsx, .xls, .csv) parser
   const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -36,8 +36,8 @@ export function sortClassesByGrade(classes: SavedClass[]): SavedClass[] {
   });
 }
 
-const STORAGE_KEY = "tro_ly_lop_hoc_classes_v8";
-const ACTIVE_CLASS_KEY = "tro_ly_lop_hoc_active_class_id_v8";
+const STORAGE_KEY = "tro_ly_lop_hoc_classes_v9";
+const ACTIVE_CLASS_KEY = "tro_ly_lop_hoc_active_class_id_v9";
 
 export const DEFAULT_CLASSES: SavedClass[] = [
   {
@@ -183,11 +183,11 @@ export const DEFAULT_CLASSES: SavedClass[] = [
       "Nguyễn Sinh Lộc",
       "Hoàng Tiến Mạnh",
       "Đoàn Đức Nam",
-      "Lê Thị Bảo NgọcA 1",
+      "Lê Thị Bảo Ngọc",
       "Hoàng Thị Tuyết Nhi",
       "Ngô Tú Quyên",
       "Vũ Tiến Thành",
-      "Hoàng Ngọc ThảoA",
+      "Hoàng Ngọc Thảo",
       "Hứa Như Phương Thảo",
       "Lê Thị Hồng Thuý",
       "Vương Ngọc Thuý",
@@ -210,9 +210,9 @@ export const DEFAULT_CLASSES: SavedClass[] = [
       "Đào Mạnh Dũng",
       "Hứa Đặng Thùy Ánh Duyên",
       "Bùi Hoàng Dương",
-      "Lê Thị Thùy DươngA",
+      "Lê Thị Thùy Dương",
       "Trần Xuân Đại",
-      "Lê Thị Thu HàA",
+      "Lê Thị Thu Hà",
       "Nguyễn Đoàn Mai Hân",
       "Hoàng Văn Hùng",
       "Ôn Gia Huy",
@@ -220,20 +220,20 @@ export const DEFAULT_CLASSES: SavedClass[] = [
       "Hoàng Tuấn Kiệt",
       "Hoàng Ngọc Lan",
       "Hoàng Kim Ngân",
-      "Nguyễn Bảo NgọcA",
+      "Nguyễn Bảo Ngọc",
       "Phạm Khải Nguyên",
-      "Hoàng Minh NhậtA",
+      "Hoàng Minh Nhật",
       "Nguyễn Bảo Nhi",
-      "Trần Thị Thảo NhiA",
+      "Trần Thị Thảo Nhi",
       "Lê Văn Quang",
       "Phạm Duy Thành",
-      "Trần Đức ThịnhA",
+      "Trần Đức Thịnh",
       "Vương Anh Thư",
       "Phạm Thị Trang",
       "Từ Thị Thu Trang",
       "Trần Bảo Trâm",
       "Phạm Hoàng Nam Trung",
-      "Nguyễn Quốc ViệtA",
+      "Nguyễn Quốc Việt",
       "Lê Hoàng Hà Vy",
     ],
     updatedAt: Date.now(),
@@ -246,7 +246,7 @@ export const DEFAULT_CLASSES: SavedClass[] = [
       "Bùi Thị Ngọc Anh",
       "Nguyễn Tô Thiên Ân",
       "Phạm Thị Chinh",
-      "Phạm Tiến DũngA",
+      "Phạm Tiến Dũng",
       "Hoàng Thế Duy",
       "Phạm Văn Đại",
       "Đoàn Tiến Đạt",
@@ -533,8 +533,8 @@ export const DEFAULT_CLASSES: SavedClass[] = [
       "Phạm Ngọc Minh",
       "Phạm Tiến Minh",
       "Hoàng Ngọc Nam",
-      "Hoàng Thị Tuyết Nhi",
-      "Hoàng Thị Tuyết Nhi",
+      "Hoàng Thị Tuyết Nhi (1)",
+      "Hoàng Thị Tuyết Nhi (2)",
       "Đặng Hồng Nhung",
       "Lê Khánh Phương",
       "Phạm Thanh Quyên",
@@ -559,6 +559,7 @@ export const classStorage = {
     try {
       const data =
         localStorage.getItem(STORAGE_KEY) ||
+        localStorage.getItem("tro_ly_lop_hoc_classes_v8") ||
         localStorage.getItem("tro_ly_lop_hoc_classes_v7") ||
         localStorage.getItem("tro_ly_lop_hoc_classes_v6") ||
         localStorage.getItem("tro_ly_lop_hoc_classes_v5") ||
@@ -600,6 +601,38 @@ export const classStorage = {
       parsed = parsed.filter(
         (c) => !(c.id === "class_6a" && c.name === "Lớp 6A" && parsed.some((p) => p.name === "Lớp 6A1"))
       );
+
+      // Clean legacy LMS trailing "A"/"A 1" artifacts and exact duplicate names when migrating
+      if (!localStorage.getItem(STORAGE_KEY)) {
+        const legacyMap: Record<string, string> = {
+          "Lê Thị Bảo NgọcA 1": "Lê Thị Bảo Ngọc",
+          "Hoàng Ngọc ThảoA": "Hoàng Ngọc Thảo",
+          "Lê Thị Thùy DươngA": "Lê Thị Thùy Dương",
+          "Lê Thị Thu HàA": "Lê Thị Thu Hà",
+          "Nguyễn Bảo NgọcA": "Nguyễn Bảo Ngọc",
+          "Hoàng Minh NhậtA": "Hoàng Minh Nhật",
+          "Trần Thị Thảo NhiA": "Trần Thị Thảo Nhi",
+          "Trần Đức ThịnhA": "Trần Đức Thịnh",
+          "Nguyễn Quốc ViệtA": "Nguyễn Quốc Việt",
+          "Phạm Tiến DũngA": "Phạm Tiến Dũng",
+        };
+        parsed = parsed.map((cls) => {
+          const seenCounts = new Map<string, number>();
+          const cleaned = cls.students.map((name) => legacyMap[name] || name);
+          const totals = new Map<string, number>();
+          cleaned.forEach((n) => totals.set(n, (totals.get(n) || 0) + 1));
+          const deduped = cleaned.map((n) => {
+            if ((totals.get(n) || 0) > 1) {
+              const idx = (seenCounts.get(n) || 0) + 1;
+              seenCounts.set(n, idx);
+              return `${n} (${idx})`;
+            }
+            return n;
+          });
+          return { ...cls, students: deduped };
+        });
+        hasNew = true;
+      }
 
       // ALWAYS ensure classes are sorted by grade and section (6A1 -> 6A2 -> 6B -> 7A1 ... -> 9B)
       parsed = sortClassesByGrade(parsed);

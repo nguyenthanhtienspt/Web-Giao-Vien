@@ -96,10 +96,10 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
     soundManager.playWinner();
   };
 
-  // Re-run split when parameters change
+  // Re-run split when parameters or active class list change
   useEffect(() => {
     performSplit();
-  }, [studentCount, groupCount, sourceType]);
+  }, [studentCount, groupCount, sourceType, customList]);
 
   // Sync spotlightGroup when groups change
   useEffect(() => {
@@ -120,8 +120,15 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
     setGroups((prevGroups) => {
       return prevGroups.map((group) => {
         if (group.id === sourceGroupId) {
-          const nextMembers = group.members.filter((m) => m !== member);
-          const nextLeader = group.leader === member ? undefined : group.leader;
+          const idx = group.members.indexOf(member);
+          const nextMembers =
+            idx === -1
+              ? group.members
+              : [...group.members.slice(0, idx), ...group.members.slice(idx + 1)];
+          const nextLeader =
+            group.leader === member && !nextMembers.includes(member)
+              ? undefined
+              : group.leader;
           return {
             ...group,
             members: nextMembers,
@@ -129,7 +136,7 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
           };
         }
         if (group.id === targetGroupId) {
-          if (group.members.includes(member)) return group;
+          if (sourceType === 'numbers' && group.members.includes(member)) return group;
           const nextMembers = [...group.members, member];
           if (sourceType === 'numbers') {
             nextMembers.sort((a, b) => (a as number) - (b as number));

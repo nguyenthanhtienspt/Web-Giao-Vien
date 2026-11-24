@@ -11,16 +11,11 @@ import { GroupSplitterTab } from './components/GroupSplitterTab';
 import { CountdownTimerTab } from './components/CountdownTimerTab';
 import { ScoreboardTab } from './components/ScoreboardTab';
 import { ClassManagerModal } from './components/ClassManagerModal';
-import { AuthModal } from './components/AuthModal';
-import { AuthProvider, useAuth } from './context/AuthContext';
 import { TabId, SavedClass } from './types';
-import { classStorage, DEFAULT_CLASSES } from './services/classStorage';
-import { cloudClassStorage } from './services/cloudClassStorage';
+import { classStorage } from './services/classStorage';
 
-function AppContent() {
-  const { user } = useAuth();
-
-  // Saved classes state (persisted locally on device + synced to Cloud when logged in)
+export default function App() {
+  // Saved classes state (persisted locally on device)
   const [savedClasses, setSavedClasses] = useState<SavedClass[]>(() => classStorage.getClasses());
   const [activeClass, setActiveClass] = useState<SavedClass | null>(() => {
     const classes = classStorage.getClasses();
@@ -29,8 +24,6 @@ function AppContent() {
   });
 
   const [isClassManagerOpen, setIsClassManagerOpen] = useState<boolean>(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
-  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   // Global states synced with active class
   const [studentCount, setStudentCount] = useState<number>(() => activeClass?.studentCount || 40);
@@ -72,50 +65,6 @@ function AppContent() {
     }
   };
 
-  // Sync classes from Cloud on teacher login / reset on logout
-  useEffect(() => {
-    if (!user) {
-      // Teacher signed out -> reset local view to default
-      const defaults = classStorage.getClasses();
-      setSavedClasses(defaults);
-      if (defaults.length > 0) {
-        handleSelectClass(defaults[0]);
-      }
-      return;
-    }
-
-    let isMounted = true;
-    const loadCloudClasses = async () => {
-      setIsSyncing(true);
-      const cloudClasses = await cloudClassStorage.getClassesFromCloud(user.id);
-      if (!isMounted) return;
-      setIsSyncing(false);
-
-      if (cloudClasses && cloudClasses.length > 0) {
-        // Teacher has classes stored in cloud -> load their own classes
-        setSavedClasses(cloudClasses);
-        const activeId = classStorage.getActiveClassId();
-        const currentActive = cloudClasses.find((c) => c.id === activeId) || cloudClasses[0];
-        handleSelectClass(currentActive);
-      } else if (cloudClasses && cloudClasses.length === 0) {
-        // New account with 0 classes -> give them their own independent copy of DEFAULT_CLASSES
-        const initialClasses = DEFAULT_CLASSES.map((c) => ({ ...c }));
-        setIsSyncing(true);
-        await cloudClassStorage.syncAllClassesToCloud(user.id, initialClasses);
-        if (isMounted) {
-          setSavedClasses(initialClasses);
-          handleSelectClass(initialClasses[0]);
-          setIsSyncing(false);
-        }
-      }
-    };
-
-    loadCloudClasses();
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
-
   // Save current student list directly to active class
   const handleSaveToActiveClass = (students: string[]) => {
     if (!activeClass) return;
@@ -130,30 +79,7 @@ function AppContent() {
     setSavedClasses(classStorage.getClasses());
     setCustomList(students);
     setStudentCount(updated.studentCount);
-
-    if (user) {
-      cloudClassStorage.saveClassToCloud(user.id, updated);
-    }
-
     alert(`Đã lưu danh sách ${students.length} học sinh vào "${updated.name}" thành công!`);
-  };
-
-  // Manual trigger to sync all local classes to Cloud
-  const handleSyncToCloud = async () => {
-    if (!user) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-    setIsSyncing(true);
-    const target = classStorage.getClasses();
-    const ok = await cloudClassStorage.syncAllClassesToCloud(user.id, target);
-    setIsSyncing(false);
-
-    if (ok) {
-      alert(`Đã đồng bộ thành công ${target.length} lớp học lên Cloud của Thầy/Cô!`);
-    } else {
-      alert('Không thể kết nối đến Cloud. Dữ liệu vẫn được lưu an toàn trên máy tính này.');
-    }
   };
 
   // Fullscreen toggle handler
@@ -180,17 +106,6 @@ function AppContent() {
 
   // Keyboard number shortcuts to switch tabs: 1, 2, 3, 4
   useEffect(() => {
-    // If URL has OAuth error from Google provider being disabled
-    const raw = (window.location.hash || '') + (window.location.search || '');
-    if (
-      raw.includes('provider+is+not+enabled') ||
-      raw.includes('provider_not_enabled') ||
-      raw.includes('Unsupported+provider') ||
-      raw.includes('validation_failed')
-    ) {
-      setIsAuthModalOpen(true);
-    }
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
         return;
@@ -229,9 +144,6 @@ function AppContent() {
         savedClasses={savedClasses}
         onSelectClass={handleSelectClass}
         onOpenClassManager={() => setIsClassManagerOpen(true)}
-        onOpenAuthModal={() => setIsAuthModalOpen(true)}
-        onSyncToCloud={handleSyncToCloud}
-        isSyncing={isSyncing}
       />
 
       {/* 4 Feature Tabs Navigation */}
@@ -277,21 +189,23 @@ function AppContent() {
         isOpen={isClassManagerOpen}
         onClose={() => {
           setIsClassManagerOpen(false);
-          const current = classStorage.getClasses();
-          setSavedClasses(current);
-          if (user) {
-            cloudClassStorage.syncAllClassesToCloud(user.id, current);
+          const refreshed = classStorage.getClasses();
+          setSavedClasses(refreshed);
+          if (activeClass) {
+            const latestActive = refreshed.find((c) => c.id === activeClass.id);
+            if (latestActive) {
+              setActiveClass(latestActive);
+              setStudentCount(latestActive.studentCount);
+              if (latestActive.students.length > 0) {
+                setCustomList(latestActive.students);
+              }
+            } else if (refreshed.length > 0) {
+              handleSelectClass(refreshed[0]);
+            }
           }
         }}
         activeClass={activeClass}
         onSelectClass={handleSelectClass}
-        isLightMode={isLightMode}
-      />
-
-      {/* Teacher Authentication Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
         isLightMode={isLightMode}
       />
 
@@ -307,21 +221,10 @@ function AppContent() {
           </span>
           <div className="flex items-center gap-4">
             <span>Phím tắt nhanh: <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200">1</kbd>–<kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200">4</kbd> chuyển thẻ · <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200">Space</kbd> Thao tác</span>
-            <span className="flex items-center gap-1">
-              <span className={`w-2 h-2 rounded-full ${user ? 'bg-emerald-400' : 'bg-slate-500'}`} />
-              <span>{user ? 'Đã kết nối Cloud' : 'Lưu cục bộ trên thiết bị'}</span>
-            </span>
+            <span>Đã lưu trên thiết bị</span>
           </div>
         </div>
       </footer>
     </div>
-  );
-}
-
-export default function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
   );
 }
