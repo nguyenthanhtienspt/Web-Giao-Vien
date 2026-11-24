@@ -203,26 +203,37 @@ export const GoogleSheetModal: React.FC<GoogleSheetModalProps> = ({
 
           {tab === 'sync' ? (
             <div className="flex flex-col gap-4">
-              {/* Current Sheet Connection Badge */}
-              {meta.sheetName && (
-                <div
-                  className={`px-4 py-2.5 rounded-2xl border flex items-center justify-between gap-2 text-xs ${
-                    isLightMode
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                      : 'bg-emerald-950/30 border-emerald-800/60 text-emerald-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 font-bold truncate">
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span className="truncate">File đang kết nối: <strong>{meta.sheetName}</strong></span>
-                  </div>
+              {/* Quick Open Created Google Sheet Link */}
+              <div
+                className={`px-4 py-3 rounded-2xl border flex flex-wrap items-center justify-between gap-2 text-xs ${
+                  isLightMode
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    : 'bg-emerald-950/30 border-emerald-800/60 text-emerald-300'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-bold truncate">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span className="truncate">
+                    Bảng tính: <strong>{meta.sheetName || 'Trợ Lý Lớp Học THCS - Database'}</strong>
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
                   {meta.lastSyncedAt && (
-                    <span className="text-[11px] opacity-80 shrink-0">
+                    <span className="text-[11px] opacity-80">
                       Đồng bộ: {new Date(meta.lastSyncedAt).toLocaleTimeString('vi-VN')}
                     </span>
                   )}
+                  <a
+                    href="https://docs.google.com/spreadsheets/d/1ctxKQ3z5BS5z5pU-GE3LxHZATWIAAhdioWskE5Tpfgo/edit"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black inline-flex items-center gap-1"
+                  >
+                    <span>Mở Google Sheet</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
                 </div>
-              )}
+              </div>
 
               {/* Script URL */}
               <div className="flex flex-col gap-1.5">
@@ -365,17 +376,15 @@ export const GoogleSheetModal: React.FC<GoogleSheetModalProps> = ({
                 </p>
                 <ol className="list-decimal list-inside space-y-1.5 font-medium">
                   <li>
-                    Bấm mở{' '}
+                    Bấm mở file Google Sheet đã tạo sẵn trên Drive của Thầy:{' '}
                     <a
-                      href="https://sheets.new"
+                      href="https://docs.google.com/spreadsheets/d/1ctxKQ3z5BS5z5pU-GE3LxHZATWIAAhdioWskE5Tpfgo/edit"
                       target="_blank"
                       rel="noreferrer"
                       className="text-emerald-500 font-black underline inline-flex items-center gap-1"
                     >
-                      https://sheets.new <ExternalLink className="w-3.5 h-3.5" />
-                    </a>{' '}
-                    để tạo 1 file Google Sheet mới trên Google Drive của Thầy (đặt tên VD:{' '}
-                    <strong>Trợ Lý Lớp Học - Database</strong>).
+                      Trợ Lý Lớp Học THCS - Database <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
                   </li>
                   <li>
                     Trên thanh menu Google Sheet, chọn{' '}
