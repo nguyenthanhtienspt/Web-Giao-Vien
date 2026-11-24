@@ -1,65 +1,44 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { Trophy, RotateCcw, Plus, Minus, Award, Sparkles, Edit2, Check, PartyPopper, Flame } from 'lucide-react';
+import { Trophy, RotateCcw, Plus, Minus, Award, Sparkles, Edit2, Check, PartyPopper, Flame, Undo2, Crown } from 'lucide-react';
 import { GroupScore } from '../types';
 import { soundManager } from '../services/sound';
 
 interface ScoreboardTabProps {
   isLightMode: boolean;
+  isActive?: boolean;
+  activeClassName?: string;
+  groups: GroupScore[];
+  onUpdateGroups: (next: GroupScore[], recordUndo?: boolean) => void;
+  canUndo: boolean;
+  onUndo: () => void;
+  onChangeGroupCount: (count: number) => void;
 }
 
-const INITIAL_GROUPS: GroupScore[] = [
-  { id: 1, name: 'Nhóm 1', score: 0, color: 'border-blue-500', badgeColor: 'bg-blue-600' },
-  { id: 2, name: 'Nhóm 2', score: 0, color: 'border-emerald-500', badgeColor: 'bg-emerald-600' },
-  { id: 3, name: 'Nhóm 3', score: 0, color: 'border-amber-500', badgeColor: 'bg-amber-600' },
-  { id: 4, name: 'Nhóm 4', score: 0, color: 'border-rose-500', badgeColor: 'bg-rose-600' },
-  { id: 5, name: 'Nhóm 5', score: 0, color: 'border-purple-500', badgeColor: 'bg-purple-600' },
-  { id: 6, name: 'Nhóm 6', score: 0, color: 'border-cyan-500', badgeColor: 'bg-cyan-600' },
-  { id: 7, name: 'Nhóm 7', score: 0, color: 'border-orange-500', badgeColor: 'bg-orange-600' },
-  { id: 8, name: 'Nhóm 8', score: 0, color: 'border-pink-500', badgeColor: 'bg-pink-600' },
-];
-
-// Vibrant color palette for fireworks particles
 const FIREWORK_COLORS = [
-  '#FFD700', // Gold
-  '#FF3366', // Hot pink / Red
-  '#00E5FF', // Cyan
-  '#76FF03', // Lime / Emerald
-  '#FF9100', // Neon Orange
-  '#D500F9', // Electric Purple
-  '#FFFFFF', // Starlight White
+  '#FFD700',
+  '#FF3366',
+  '#00E5FF',
+  '#76FF03',
+  '#FF9100',
+  '#D500F9',
+  '#FFFFFF',
 ];
 
-const SCOREBOARD_STORAGE_KEY = 'tro_ly_lop_hoc_scoreboard_v2';
-
-export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => {
-  const [groups, setGroups] = useState<GroupScore[]>(() => {
-    try {
-      const raw = localStorage.getItem(SCOREBOARD_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.error('Failed to load scoreboard from storage', e);
-    }
-    return INITIAL_GROUPS;
-  });
-
-  // Automatically save scores whenever groups change
-  useEffect(() => {
-    try {
-      localStorage.setItem(SCOREBOARD_STORAGE_KEY, JSON.stringify(groups));
-    } catch (e) {
-      console.error('Failed to save scoreboard to storage', e);
-    }
-  }, [groups]);
-
+export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
+  isLightMode,
+  isActive = true,
+  activeClassName,
+  groups,
+  onUpdateGroups,
+  canUndo,
+  onUndo,
+  onChangeGroupCount,
+}) => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
   const [showCeremony, setShowCeremony] = useState<boolean>(false);
-  
-  // Celebration banner state when high score reached or congratulation button clicked
+
   const [celebrationBanner, setCelebrationBanner] = useState<{
     groupName: string;
     score: number;
@@ -68,7 +47,6 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
 
   const bannerTimeoutRef = useRef<number | null>(null);
 
-  // Clean up banner timer
   useEffect(() => {
     return () => {
       if (bannerTimeoutRef.current) {
@@ -77,13 +55,22 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
     };
   }, []);
 
-  /**
-   * Multi-stage Realistic Fireworks Launcher
-   */
+  // Ctrl+Z shortcut for Undo when ScoreboardTab is active
+  useEffect(() => {
+    if (!isActive) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && canUndo) {
+        e.preventDefault();
+        onUndo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isActive, canUndo, onUndo]);
+
   const launchGrandFireworks = (originX: number = 0.5) => {
     soundManager.playFireworksSound();
 
-    // Burst 1: Initial core rocket explosion
     confetti({
       particleCount: 80,
       angle: 90,
@@ -96,7 +83,6 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
       ticks: 200,
     });
 
-    // Burst 2 & 3: Staggered side rockets left and right
     setTimeout(() => {
       confetti({
         particleCount: 65,
@@ -120,7 +106,6 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
       });
     }, 250);
 
-    // Burst 4: Sky-filling star canopy with gentle drift
     setTimeout(() => {
       confetti({
         particleCount: 90,
@@ -136,13 +121,9 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
     }, 550);
   };
 
-  /**
-   * Continuous Cascading Fireworks (for Ceremony & Big Victories)
-   */
   const launchContinuousCelebration = () => {
     soundManager.playWinner();
     launchGrandFireworks(0.5);
-
     setTimeout(() => launchGrandFireworks(0.25), 400);
     setTimeout(() => launchGrandFireworks(0.75), 800);
     setTimeout(() => {
@@ -156,9 +137,6 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
     }, 1200);
   };
 
-  /**
-   * Show Celebration Banner
-   */
   const triggerCelebrationBanner = (groupName: string, score: number, message: string) => {
     if (bannerTimeoutRef.current) {
       window.clearTimeout(bannerTimeoutRef.current);
@@ -169,7 +147,6 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
     }, 4000);
   };
 
-  // Modify score with milestone check
   const updateScore = (id: number, delta: number) => {
     const targetGroup = groups.find((g) => g.id === id);
     if (!targetGroup) return;
@@ -183,22 +160,13 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
       soundManager.playPointSub();
     }
 
-    setGroups((prev) =>
-      prev.map((g) => {
-        if (g.id === id) {
-          return { ...g, score: newScore };
-        }
-        return g;
-      })
-    );
+    const next = groups.map((g) => (g.id === id ? { ...g, score: newScore } : g));
+    onUpdateGroups(next, true);
 
-    // Auto-fireworks check on reaching milestone high scores (e.g. 10, 15, 20, 25, 30...)
     if (delta > 0 && newScore > oldScore) {
       const milestoneIntervals = [10, 15, 20, 25, 30, 40, 50];
       const hitMilestone = milestoneIntervals.find((m) => oldScore < m && newScore >= m);
-
       if (hitMilestone) {
-        // High score milestone achieved! Trigger fireworks & celebratory banner
         launchGrandFireworks(0.5);
         triggerCelebrationBanner(
           targetGroup.name,
@@ -209,9 +177,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
     }
   };
 
-  // Teacher manually clicks "Chúc mừng" on a specific group
   const handleCongratulateGroup = (group: GroupScore, e?: React.MouseEvent) => {
-    // Estimate horizontal position of click or group
     let xRatio = 0.5;
     if (e) {
       xRatio = Math.max(0.15, Math.min(0.85, e.clientX / window.innerWidth));
@@ -222,20 +188,21 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
       group.score,
       group.score > 0
         ? `ĐẠT ${group.score} ĐIỂM · CHÚC MỪNG HOÀN THÀNH XUẤT SẮC!`
-        : `CHÚC MỪNG PHẦN THỂ HIỆN TUYỆT VỜI!`
+        : `CHÚC MỪNG PHẦN THỂ HIỆN TUỆT VỜI!`
     );
   };
 
-  // Reset all scores
   const handleResetScores = () => {
-    if (window.confirm('Thầy/Cô có chắc chắn muốn đặt lại điểm của tất cả 8 nhóm về 0?')) {
-      setGroups((prev) => prev.map((g) => ({ ...g, score: 0 })));
+    if (window.confirm(`Thầy/Cô có chắc chắn muốn đặt lại điểm của tất cả ${groups.length} nhóm về 0?`)) {
+      onUpdateGroups(
+        groups.map((g) => ({ ...g, score: 0 })),
+        true
+      );
       setShowCeremony(false);
       setCelebrationBanner(null);
     }
   };
 
-  // Edit group name
   const startEditing = (group: GroupScore) => {
     setEditingId(group.id);
     setEditName(group.name);
@@ -243,33 +210,34 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
 
   const saveEditing = () => {
     if (editingId !== null && editName.trim()) {
-      setGroups((prev) =>
-        prev.map((g) => (g.id === editingId ? { ...g, name: editName.trim() } : g))
+      onUpdateGroups(
+        groups.map((g) => (g.id === editingId ? { ...g, name: editName.trim() } : g)),
+        true
       );
     }
     setEditingId(null);
   };
 
-  // Award ceremony modal
   const handleOpenCeremony = () => {
     setShowCeremony(true);
     launchContinuousCelebration();
   };
 
-  // Calculate highest score and rankings
-  const maxScore = Math.max(...groups.map((g) => g.score));
+  const maxScore = groups.length > 0 ? Math.max(...groups.map((g) => g.score)) : 0;
   const sortedByScore = [...groups].sort((a, b) => b.score - a.score);
   const topGroups = groups.filter((g) => g.score === maxScore && maxScore > 0);
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col gap-6 relative">
-      {/* Floating High-Score / Congratulatory Banner on Projector */}
+      {/* Floating High-Score / Congratulatory Banner */}
       {celebrationBanner && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-2xl animate-in slide-in-from-top-6 duration-300 pointer-events-none">
           <div className="bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 p-1 rounded-3xl shadow-2xl shadow-indigo-500/40">
-            <div className={`px-6 py-4 rounded-[22px] flex items-center justify-between gap-4 text-white ${
-              isLightMode ? 'bg-slate-900' : 'bg-slate-950'
-            }`}>
+            <div
+              className={`px-6 py-4 rounded-[22px] flex items-center justify-between gap-4 text-white ${
+                isLightMode ? 'bg-slate-900' : 'bg-slate-950'
+              }`}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-lg animate-bounce">
                   <PartyPopper className="w-7 h-7" />
@@ -297,84 +265,145 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
       )}
 
       {/* Top Banner Actions */}
-      <div className={`p-4 sm:p-5 rounded-3xl border flex flex-wrap items-center justify-between gap-4 ${
-        isLightMode ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/90 border-slate-800'
-      }`}>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
+      <div
+        className={`p-4 sm:p-5 rounded-3xl border flex flex-wrap items-center justify-between gap-4 ${
+          isLightMode ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/90 border-slate-800'
+        }`}
+      >
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-500 flex items-center justify-center">
             <Trophy className="w-6 h-6" />
           </div>
           <div>
             <h3 className="text-lg sm:text-xl font-black font-display tracking-tight flex items-center gap-2 flex-wrap">
-              <span>BẢNG ĐIỂM THI ĐUA 8 NHÓM</span>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                ✓ Tự lưu điểm trên máy
+              <span>
+                BẢNG ĐIỂM THI ĐUA {groups.length} NHÓM
+                {activeClassName ? ` · ${activeClassName}` : ''}
+              </span>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">
+                ✓ Lưu riêng theo lớp
               </span>
               {maxScore >= 10 && (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-400 border border-amber-400/30 flex items-center gap-1">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-500 border border-amber-400/30 flex items-center gap-1">
                   <Flame className="w-3.5 h-3.5 fill-amber-400" />
                   Cao nhất: {maxScore} điểm
                 </span>
               )}
             </h3>
-            <span className="text-xs text-slate-400 font-semibold">
-              Cộng / trừ điểm theo hoạt động học tập, có hiệu ứng pháo hoa ăn mừng điểm số cao
-            </span>
+            {/* Group Count Quick Adjuster */}
+            <div className="flex items-center flex-wrap gap-1.5 mt-1.5 text-xs">
+              <span className="text-slate-400 font-bold">Số tổ/nhóm:</span>
+              {[4, 6, 8, 10].map((cnt) => (
+                <button
+                  key={cnt}
+                  onClick={() => onChangeGroupCount(cnt)}
+                  className={`px-2 py-0.5 rounded-lg font-black cursor-pointer transition-colors ${
+                    groups.length === cnt
+                      ? 'bg-indigo-600 text-white'
+                      : isLightMode
+                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  {cnt}
+                </button>
+              ))}
+              <div
+                className={`flex items-center border rounded-lg px-1 ${
+                  isLightMode ? 'border-slate-300' : 'border-slate-700'
+                }`}
+              >
+                <button
+                  onClick={() => onChangeGroupCount(groups.length - 1)}
+                  className="px-1.5 font-bold text-slate-400 hover:text-indigo-500 cursor-pointer"
+                >
+                  −
+                </button>
+                <span className="px-1 font-black text-indigo-500">{groups.length}</span>
+                <button
+                  onClick={() => onChangeGroupCount(groups.length + 1)}
+                  className="px-1.5 font-bold text-slate-400 hover:text-indigo-500 cursor-pointer"
+                >
+                  +
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center flex-wrap gap-2.5 sm:gap-3">
-          {/* Quick Fireworks Launcher Button */}
+        <div className="flex items-center flex-wrap gap-2 sm:gap-2.5">
+          {/* Undo Button */}
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 border transition-all ${
+              canUndo
+                ? isLightMode
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300 cursor-pointer'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 cursor-pointer'
+                : 'opacity-40 cursor-not-allowed border-slate-700/40 text-slate-500'
+            }`}
+            title="Hoàn tác thao tác cộng/trừ điểm vừa rồi (Ctrl+Z)"
+          >
+            <Undo2 className="w-4 h-4" />
+            <span>Hoàn tác</span>
+          </button>
+
+          {/* Quick Fireworks Launcher */}
           <button
             onClick={() => {
               launchGrandFireworks(0.5);
               triggerCelebrationBanner('CẢ LỚP', maxScore, 'TIẾT HỌC SÔI NỔI · BẮN PHÁO HOA ĂN MỪNG!');
             }}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer shadow-md ${
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer shadow-sm ${
               isLightMode
                 ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
                 : 'bg-amber-950/70 hover:bg-amber-900 text-amber-300 border border-amber-700/60'
             }`}
-            title="Bắn pháo hoa ăn mừng ngay trên máy chiếu"
           >
-            <Sparkles className="w-4 h-4 text-amber-400 fill-amber-400" />
-            <span>Bắn pháo hoa 🎆</span>
+            <Sparkles className="w-4 h-4 text-amber-500 fill-amber-400" />
+            <span>Pháo hoa 🎆</span>
           </button>
 
-          {/* Reset points button */}
+          {/* Reset points */}
           <button
             onClick={handleResetScores}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 border transition-colors ${
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 border transition-colors cursor-pointer ${
               isLightMode
                 ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
                 : 'bg-rose-950/60 hover:bg-rose-900 text-rose-300 border-rose-800'
             }`}
-            title="Đặt lại toàn bộ điểm số về 0"
           >
             <RotateCcw className="w-4 h-4" />
-            <span>Đặt lại điểm (0)</span>
+            <span>Đặt về 0</span>
           </button>
 
-          {/* Celebrate top team / Award ceremony button */}
+          {/* Award ceremony */}
           <button
             onClick={handleOpenCeremony}
             disabled={maxScore === 0}
-            className={`px-5 py-2.5 rounded-2xl font-black font-display text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-2xl font-black font-display text-xs sm:text-sm flex items-center gap-1.5 shadow-lg transition-transform active:scale-95 ${
               maxScore > 0
-                ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 shadow-amber-500/30'
+                ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 shadow-amber-500/30 cursor-pointer'
                 : 'opacity-50 cursor-not-allowed bg-slate-800 text-slate-500'
             }`}
           >
             <Award className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
-            <span>VINH DANH NHÓM XUẤT SẮC 🥇</span>
+            <span>VINH DANH 🥇</span>
           </button>
         </div>
       </div>
 
-      {/* 8 Groups Scoreboard Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+      {/* Groups Scoreboard Grid */}
+      <div
+        className={`grid gap-4 sm:gap-5 ${
+          groups.length <= 4
+            ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+            : 'grid-cols-2 md:grid-cols-4'
+        }`}
+      >
         {groups.map((group) => {
-          const isLeader = group.score === maxScore && maxScore > 0;
+          const isTopScorer = group.score === maxScore && maxScore > 0;
           const rank = sortedByScore.findIndex((g) => g.id === group.id) + 1;
           const isHighScorer = group.score >= 10;
 
@@ -382,7 +411,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
             <div
               key={group.id}
               className={`rounded-3xl border-3 flex flex-col justify-between overflow-hidden transition-all duration-300 relative ${
-                isLeader
+                isTopScorer
                   ? 'border-amber-400 ring-4 ring-amber-400/40 shadow-2xl scale-[1.02] bg-gradient-to-b from-amber-500/10 via-transparent to-transparent'
                   : isLightMode
                     ? 'bg-white border-slate-300 shadow-md hover:border-slate-400'
@@ -391,7 +420,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
             >
               {/* Group Name Header */}
               <div className={`px-4 py-3 text-white flex items-center justify-between ${group.badgeColor}`}>
-                <div className="flex items-center gap-2 flex-1 mr-2">
+                <div className="flex items-center gap-2 flex-1 mr-2 min-w-0">
                   {editingId === group.id ? (
                     <div className="flex items-center gap-1 w-full">
                       <input
@@ -402,41 +431,64 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
                         autoFocus
                         className="w-full bg-black/40 text-white px-2 py-0.5 rounded font-bold text-sm outline-none border border-white/40"
                       />
-                      <button onClick={saveEditing} className="p-1 hover:bg-black/30 rounded">
+                      <button onClick={saveEditing} className="p-1 hover:bg-black/30 rounded cursor-pointer">
                         <Check className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 group cursor-pointer" onClick={() => startEditing(group)}>
+                    <div
+                      className="flex items-center gap-1.5 group cursor-pointer min-w-0"
+                      onClick={() => startEditing(group)}
+                      title="Bấm để đổi tên nhóm/tổ"
+                    >
                       <h4 className="font-black font-display text-base sm:text-lg uppercase tracking-wider truncate">
                         {group.name}
                       </h4>
-                      <Edit2 className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <Edit2 className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                     </div>
                   )}
                 </div>
 
-                {/* Rank Badge */}
                 {maxScore > 0 && (
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-black ${
-                    rank === 1 ? 'bg-amber-400 text-amber-950 shadow' : 'bg-black/30 text-white'
-                  }`}>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-black shrink-0 ${
+                      rank === 1 ? 'bg-amber-400 text-amber-950 shadow' : 'bg-black/30 text-white'
+                    }`}
+                  >
                     {rank === 1 ? '🥇 #1' : rank === 2 ? '🥈 #2' : rank === 3 ? '🥉 #3' : `#${rank}`}
                   </span>
                 )}
               </div>
 
+              {/* Optional Leader Subtitle synced from GroupSplitter */}
+              {group.leader !== undefined && (
+                <div
+                  className={`px-3 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-b truncate ${
+                    isLightMode
+                      ? 'bg-amber-50 border-amber-200 text-amber-900'
+                      : 'bg-amber-950/30 border-slate-800 text-amber-300'
+                  }`}
+                >
+                  <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
+                  <span className="truncate">
+                    NT: {typeof group.leader === 'number' ? `Số ${group.leader}` : group.leader}
+                  </span>
+                </div>
+              )}
+
               {/* Main Score Display */}
-              <div className="py-5 sm:py-7 px-4 flex flex-col items-center justify-center relative">
-                <span className={`font-black font-display text-6xl sm:text-8xl tabular-nums tracking-tighter leading-none transition-all ${
-                  isLeader
-                    ? 'text-amber-400 text-shadow-glow'
-                    : isHighScorer
-                      ? 'text-emerald-400'
-                      : isLightMode
-                        ? 'text-slate-900'
-                        : 'text-white'
-                }`}>
+              <div className="py-5 sm:py-6 px-4 flex flex-col items-center justify-center relative">
+                <span
+                  className={`font-black font-display text-6xl sm:text-8xl tabular-nums tracking-tighter leading-none transition-all ${
+                    isTopScorer
+                      ? 'text-amber-500 text-shadow-glow'
+                      : isHighScorer
+                        ? 'text-emerald-500'
+                        : isLightMode
+                          ? 'text-slate-900'
+                          : 'text-white'
+                  }`}
+                >
                   {group.score}
                 </span>
 
@@ -445,37 +497,37 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
                     ĐIỂM SỐ
                   </span>
                   {isHighScorer && (
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.2 rounded font-bold">
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-500 px-1.5 py-0.2 rounded font-bold">
                       ⭐ ĐIỂM CAO
                     </span>
                   )}
                 </div>
 
-                {/* Dedicated Congratulate / Fireworks button for this specific group */}
                 <button
                   onClick={(e) => handleCongratulateGroup(group, e)}
                   className={`mt-3 px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all transform hover:scale-105 active:scale-95 cursor-pointer shadow-sm ${
-                    isLeader
+                    isTopScorer
                       ? 'bg-amber-400 text-amber-950 hover:bg-amber-300'
                       : isLightMode
                         ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
                         : 'bg-slate-800 hover:bg-indigo-950 text-indigo-300 border border-slate-700 hover:border-indigo-500'
                   }`}
-                  title={`Bắn pháo hoa chúc mừng ${group.name}`}
                 >
                   <PartyPopper className="w-3.5 h-3.5" />
                   <span>Chúc mừng 🎉</span>
                 </button>
               </div>
 
-              {/* Action Buttons: +1 / -1 and Bonus */}
-              <div className="p-3 sm:p-4 bg-slate-500/5 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2">
-                {/* Main +1 / -1 buttons */}
+              {/* Score Action Buttons */}
+              <div
+                className={`p-3 sm:p-4 bg-slate-500/5 border-t flex flex-col gap-2 ${
+                  isLightMode ? 'border-slate-200' : 'border-slate-800'
+                }`}
+              >
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => updateScore(group.id, -1)}
                     className="py-3 px-2 rounded-2xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-black font-display text-2xl flex items-center justify-center gap-1 shadow-md shadow-rose-600/30 transition-all cursor-pointer"
-                    title="Trừ 1 điểm"
                   >
                     <Minus className="w-6 h-6 stroke-[3]" />
                     <span>1</span>
@@ -484,28 +536,33 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
                   <button
                     onClick={() => updateScore(group.id, 1)}
                     className="py-3 px-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black font-display text-2xl flex items-center justify-center gap-1 shadow-md shadow-emerald-600/30 transition-all cursor-pointer"
-                    title="Cộng 1 điểm"
                   >
                     <Plus className="w-6 h-6 stroke-[3]" />
                     <span>1</span>
                   </button>
                 </div>
 
-                {/* Quick Bonus +2 / +5 buttons (triggers celebrations for big jumps!) */}
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => updateScore(group.id, 2)}
-                    className="py-1.5 px-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 font-bold text-xs sm:text-sm active:scale-95 transition-all"
+                    className={`py-1.5 px-2 rounded-xl font-bold text-xs sm:text-sm active:scale-95 transition-all cursor-pointer ${
+                      isLightMode
+                        ? 'bg-indigo-100 hover:bg-indigo-200 text-indigo-800'
+                        : 'bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400'
+                    }`}
                   >
                     +2 điểm
                   </button>
                   <button
                     onClick={() => {
                       updateScore(group.id, 5);
-                      // Extra confetti sparkle for +5 big score answer
                       launchGrandFireworks(0.5);
                     }}
-                    className="py-1.5 px-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-bold text-xs sm:text-sm active:scale-95 transition-all"
+                    className={`py-1.5 px-2 rounded-xl font-bold text-xs sm:text-sm active:scale-95 transition-all cursor-pointer ${
+                      isLightMode
+                        ? 'bg-amber-100 hover:bg-amber-200 text-amber-900'
+                        : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-400'
+                    }`}
                   >
                     +5 điểm ⭐
                   </button>
@@ -516,17 +573,19 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({ isLightMode }) => 
         })}
       </div>
 
-      {/* Award Ceremony Celebration Modal with Cascading Fireworks */}
+      {/* Award Ceremony Celebration Modal */}
       {showCeremony && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className={`w-full max-w-xl rounded-3xl border-4 border-amber-400 p-8 sm:p-10 text-center shadow-2xl relative animate-in zoom-in-95 duration-200 ${
-            isLightMode ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'
-          }`}>
-            <div className="w-24 h-24 mx-auto rounded-full bg-amber-400/20 text-amber-400 flex items-center justify-center mb-4 ring-8 ring-amber-400/30 animate-pulse">
+          <div
+            className={`w-full max-w-xl rounded-3xl border-4 border-amber-400 p-8 sm:p-10 text-center shadow-2xl relative animate-in zoom-in-95 duration-200 ${
+              isLightMode ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'
+            }`}
+          >
+            <div className="w-24 h-24 mx-auto rounded-full bg-amber-400/20 text-amber-500 flex items-center justify-center mb-4 ring-8 ring-amber-400/30 animate-pulse">
               <Trophy className="w-14 h-14" />
             </div>
 
-            <span className="text-sm font-bold uppercase tracking-widest text-amber-400 block mb-1">
+            <span className="text-sm font-bold uppercase tracking-widest text-amber-500 block mb-1">
               CHÚC MỪNG CHIẾN THẮNG XUẤT SẮC!
             </span>
             <h2 className="text-3xl sm:text-5xl font-black font-display mb-6">

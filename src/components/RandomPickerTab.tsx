@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { RotateCcw, Shuffle, Sparkles, CheckCircle2, Layers, FileText, Hash, Edit3, X, Check, Trash2, CheckSquare, Square, CheckCheck, RefreshCw, AlertCircle, Play, Trophy, Maximize2, Minimize2, ArrowUpDown } from 'lucide-react';
+import { RotateCcw, Shuffle, Sparkles, CheckCircle2, Layers, FileText, Hash, Edit3, X, Check, Trash2, CheckSquare, Square, CheckCheck, RefreshCw, AlertCircle, Play, Trophy, Maximize2, Minimize2, ArrowUpDown, HelpCircle, Timer, Plus } from 'lucide-react';
 import { soundManager } from '../services/sound';
-import { SavedClass } from '../types';
+import { SavedClass, GroupScore, GroupItem } from '../types';
 import { sortVietnameseStudentNames } from '../services/classStorage';
+import { classroomStateStorage, QuestionBankState } from '../services/classroomStateStorage';
+import { QuestionBankModal } from './QuestionBankModal';
 import { DuckRaceGame } from './DuckRaceGame';
 import { MarbleDropGame } from './MarbleDropGame';
 import { CarRaceGame } from './CarRaceGame';
@@ -13,9 +15,15 @@ export type PickerGameType = 'wheel' | 'duck' | 'marble' | 'car';
 interface RandomPickerTabProps {
   studentCount: number;
   isLightMode: boolean;
+  isActive?: boolean;
   customList: string[];
   setCustomList: (list: string[]) => void;
   activeClass: SavedClass | null;
+  absentStudents?: string[];
+  scoreGroups?: GroupScore[];
+  splitGroups?: GroupItem[];
+  onQuickAwardScore?: (groupId: number, delta: number) => void;
+  onStartQuickTimer?: (seconds: number) => void;
   onOpenClassManager: () => void;
   onSaveToActiveClass: (students: string[]) => void;
 }
@@ -53,29 +61,102 @@ const PRESET_QUESTIONS = [
 export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
   studentCount,
   isLightMode,
+  isActive = true,
   customList,
   setCustomList,
   activeClass,
+  absentStudents = [],
+  scoreGroups = [],
+  splitGroups = [],
+  onQuickAwardScore,
+  onStartQuickTimer,
   onOpenClassManager,
   onSaveToActiveClass,
 }) => {
-  // Mode selection: by numbers (1-N) or by custom entered list
-  const [pickerMode, setPickerMode] = useState<'numbers' | 'customList'>('numbers');
-  // Visual Game / Style: Classic Wheel / Duck Race / Marble Drop
+  const classKey = activeClass?.id || 'default_class';
+
+  // Default to student names mode whenever class has student names
+  const [pickerMode, setPickerMode] = useState<'numbers' | 'customList'>(() =>
+    customList.length > 0 ? 'customList' : 'numbers'
+  );
+  // Visual Game / Style: Classic Wheel / Duck Race / Marble Drop / Car Race
   const [pickerGameType, setPickerGameType] = useState<PickerGameType>('wheel');
 
-  // State for Numbers mode
-  const [pickedNumbers, setPickedNumbers] = useState<number[]>([]);
+  // State for Numbers mode (persisted per class)
+  const [pickedNumbers, setPickedNumbers] = useState<number[]>(
+    () => classroomStateStorage.getPickedForClass(classKey).numbers
+  );
   const [selectedNumbers, setSelectedNumbers] = useState<number[]>(() =>
-    Array.from({ length: studentCount }, (_, i) => i + 1)
+    Array.from({ length: studentCount }, (_, i) => i + 1).filter(
+      (n) => !absentStudents.includes(customList[n - 1] || '')
+    )
   );
   const [currentDisplayNumber, setCurrentDisplayNumber] = useState<number | null>(null);
 
-  // State for Custom List mode
-  const [pickedCustomItems, setPickedCustomItems] = useState<string[]>([]);
-  const [selectedCustomItems, setSelectedCustomItems] = useState<string[]>(customList);
+  // State for Custom List mode (persisted per class)
+  const [pickedCustomItems, setPickedCustomItems] = useState<string[]>(
+    () => classroomStateStorage.getPickedForClass(classKey).items
+  );
+  const [selectedCustomItems, setSelectedCustomItems] = useState<string[]>(() =>
+    customList.filter((name) => !absentStudents.includes(name))
+  );
   const [currentDisplayItem, setCurrentDisplayItem] = useState<string | null>(null);
   const [latestPickedItems, setLatestPickedItems] = useState<string[]>([]);
+
+  // Question Bank state
+  const [questionBank, setQuestionBank] = useState<QuestionBankState>(() =>
+    classroomStateStorage.getQuestionBank()
+  );
+  const [isQuestionModalOpen, setIsQuestionModalOpen] = useState<boolean>(false);
+  const [currentPickedQuestion, setCurrentPickedQuestion] = useState<string | null>(null);
+  const [awardedFeedback, setAwardedFeedback] = useState<string | null>(null);
+
+  const handleUpdateQuestionBank = (next: QuestionBankState) => {
+    setQuestionBank(next);
+    classroomStateStorage.saveQuestionBank(next);
+    if (!next.enabled) {
+      setCurrentPickedQuestion(null);
+    }
+  };
+
+  const drawNextQuestion = (): string | null => {
+    if (!questionBank.enabled || questionBank.questions.length === 0) return null;
+    const pool = questionBank.avoidRepeat
+      ? questionBank.questions.filter((q) => !questionBank.asked.includes(q))
+      : questionBank.questions;
+    const effectivePool = pool.length > 0 ? pool : questionBank.questions;
+    const chosenQ = effectivePool[Math.floor(Math.random() * effectivePool.length)];
+    const nextAsked =
+      pool.length > 0
+        ? [...questionBank.asked, chosenQ]
+        : [chosenQ];
+    const nextState: QuestionBankState = {
+      ...questionBank,
+      asked: questionBank.avoidRepeat ? nextAsked : questionBank.asked,
+    };
+    setQuestionBank(nextState);
+    classroomStateStorage.saveQuestionBank(nextState);
+    setCurrentPickedQuestion(chosenQ);
+    return chosenQ;
+  };
+
+  // Helper to detect which split group a student belongs to
+  const findStudentGroupId = (studentNameOrNum: string | number): number | null => {
+    for (const g of splitGroups) {
+      if (g.members.includes(studentNameOrNum)) return g.id;
+      if (typeof studentNameOrNum === 'number' && customList[studentNameOrNum - 1]) {
+        if (g.members.includes(customList[studentNameOrNum - 1])) return g.id;
+      }
+    }
+    return null;
+  };
+
+  const triggerQuickScore = (groupId: number, groupName: string, delta: number) => {
+    onQuickAwardScore?.(groupId, delta);
+    soundManager.playPointAdd();
+    setAwardedFeedback(`Đã +${delta} điểm cho ${groupName}!`);
+    window.setTimeout(() => setAwardedFeedback(null), 2200);
+  };
 
   // Modal for editing custom list
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -180,22 +261,44 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               : '🎰',
       winners: resolvedWinners,
     });
+    drawNextQuestion();
   };
 
-  // Synchronize selected pools when props change
+  // Load saved picked history when switching active class
   useEffect(() => {
-    setSelectedCustomItems(customList);
-    setPickedCustomItems([]);
+    const saved = classroomStateStorage.getPickedForClass(classKey);
+    setPickedNumbers(saved.numbers);
+    setPickedCustomItems(saved.items);
+    setCurrentDisplayNumber(null);
     setCurrentDisplayItem(null);
+    setLatestPicksNumbers([]);
     setLatestPickedItems([]);
-  }, [customList]);
+    setCurrentPickedQuestion(null);
+    if (customList.length > 0) {
+      setPickerMode('customList');
+    }
+  }, [classKey]);
+
+  // Persist picked history per class whenever it changes
+  useEffect(() => {
+    classroomStateStorage.savePickedForClass(classKey, {
+      numbers: pickedNumbers,
+      items: pickedCustomItems,
+    });
+  }, [classKey, pickedNumbers, pickedCustomItems]);
+
+  // Synchronize selected pools with customList, studentCount, and absentStudents
+  useEffect(() => {
+    setSelectedCustomItems(customList.filter((item) => !absentStudents.includes(item)));
+  }, [customList, absentStudents]);
 
   useEffect(() => {
-    setSelectedNumbers(Array.from({ length: studentCount }, (_, i) => i + 1));
-    setPickedNumbers([]);
-    setCurrentDisplayNumber(null);
-    setLatestPicksNumbers([]);
-  }, [studentCount]);
+    setSelectedNumbers(
+      Array.from({ length: studentCount }, (_, i) => i + 1).filter(
+        (n) => !absentStudents.includes(customList[n - 1] || '')
+      )
+    );
+  }, [studentCount, customList, absentStudents]);
 
   // Numbers mode pools (considering selected / checked numbers)
   const allNumbers = Array.from({ length: studentCount }, (_, i) => i + 1);
@@ -222,8 +325,10 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
     setEditorText(customList.join('\n'));
   }, [customList]);
 
-  // Keyboard shortcut: Spacebar to trigger roll, F to toggle fullscreen, Esc to exit
+  // Keyboard shortcut: Spacebar / PageDown to trigger roll, PageUp / Esc to close modal, F to toggle fullscreen
   useEffect(() => {
+    if (!isActive) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
         return;
@@ -231,6 +336,11 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
       if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
         toggleGameFullscreen();
+        return;
+      }
+      if ((e.key === 'Escape' || e.key === 'PageUp') && winnerNotification) {
+        e.preventDefault();
+        setWinnerNotification(null);
         return;
       }
       if (e.key === 'Escape' && isGameFullscreen) {
@@ -241,7 +351,7 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
         setIsGameFullscreen(false);
         return;
       }
-      if (e.code === 'Space' && !isRolling) {
+      if ((e.code === 'Space' || e.key === 'PageDown') && !isRolling && !winnerNotification && pickerGameType === 'wheel') {
         if (pickerMode === 'numbers' && !isAllNumbersPicked && remainingNumbers.length > 0) {
           e.preventDefault();
           handleRollNumbers();
@@ -264,7 +374,7 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [isRolling, pickerMode, isAllNumbersPicked, isAllCustomPicked, remainingNumbers, remainingCustomItems, batchCount, isGameFullscreen]);
+  }, [isActive, isRolling, pickerMode, pickerGameType, winnerNotification, isAllNumbersPicked, isAllCustomPicked, remainingNumbers, remainingCustomItems, batchCount, isGameFullscreen]);
 
   const fireConfetti = () => {
     try {
@@ -355,6 +465,7 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
         setIsRolling(false);
         soundManager.playWinner();
         fireConfetti();
+        drawNextQuestion();
       }
     };
 
@@ -395,6 +506,7 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
         setIsRolling(false);
         soundManager.playWinner();
         fireConfetti();
+        drawNextQuestion();
       }
     };
 
@@ -408,6 +520,7 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
     setPickedNumbers([]);
     setCurrentDisplayNumber(null);
     setLatestPicksNumbers([]);
+    setCurrentPickedQuestion(null);
   };
 
   const handleResetCustom = () => {
@@ -417,6 +530,7 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
     setPickedCustomItems([]);
     setCurrentDisplayItem(null);
     setLatestPickedItems([]);
+    setCurrentPickedQuestion(null);
   };
 
   const handleRemoveNumber = (num: number) => {
@@ -570,12 +684,46 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
           {pickerMode === 'customList' && (
             <button
               onClick={() => setIsEditorOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow transition-all cursor-pointer active:scale-95"
+              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow transition-all cursor-pointer active:scale-95"
             >
               <Edit3 className="w-3.5 h-3.5" />
               <span>Nhập / Dán</span>
             </button>
           )}
+
+          {/* Question Bank Toggle + Modal Button */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() =>
+                handleUpdateQuestionBank({
+                  ...questionBank,
+                  enabled: !questionBank.enabled,
+                })
+              }
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                questionBank.enabled
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
+                  : isLightMode
+                    ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700'
+                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
+              }`}
+              title="Bật/tắt tự động ghép câu hỏi kiểm tra bài cũ khi gọi tên"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span>{questionBank.enabled ? 'Đang ghép câu hỏi' : 'Ghép câu hỏi'}</span>
+            </button>
+            <button
+              onClick={() => setIsQuestionModalOpen(true)}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                isLightMode
+                  ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-800'
+                  : 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/30 text-amber-300'
+              }`}
+              title="Soạn ngân hàng câu hỏi bài dạy"
+            >
+              Soạn ({questionBank.questions.length})
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1072,6 +1220,108 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               )}
             </div>
 
+            {/* Paired Question & Quick Score Bar on Classic Stage */}
+            {!isRolling &&
+              ((pickerMode === 'numbers' && latestPicksNumbers.length > 0) ||
+                (pickerMode === 'customList' && latestPickedItems.length > 0)) && (
+                <div className="w-full max-w-3xl px-4 mt-2 flex flex-col gap-3">
+                  {questionBank.enabled && currentPickedQuestion && (
+                    <div
+                      className={`p-4 sm:p-5 rounded-2xl border-2 text-left flex flex-col gap-2.5 shadow-lg ${
+                        isLightMode
+                          ? 'bg-amber-50 border-amber-400 text-slate-900'
+                          : 'bg-amber-950/40 border-amber-400/80 text-amber-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-black uppercase tracking-wider text-amber-500 flex items-center gap-1.5">
+                          <HelpCircle className="w-4 h-4" />
+                          <span>CÂU HỎI DÀNH CHO EM:</span>
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {onStartQuickTimer && (
+                            <>
+                              <button
+                                onClick={() => onStartQuickTimer(30)}
+                                className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
+                              >
+                                <Timer className="w-3 h-3" />
+                                <span>30s</span>
+                              </button>
+                              <button
+                                onClick={() => onStartQuickTimer(60)}
+                                className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
+                              >
+                                <Timer className="w-3 h-3" />
+                                <span>60s</span>
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={drawNextQuestion}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer ${
+                              isLightMode
+                                ? 'bg-amber-200 hover:bg-amber-300 text-amber-950'
+                                : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300'
+                            }`}
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            <span>Đổi câu</span>
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-lg sm:text-2xl font-black font-display leading-snug">
+                        {currentPickedQuestion}
+                      </p>
+                    </div>
+                  )}
+
+                  {onQuickAwardScore && scoreGroups.length > 0 && (
+                    <div
+                      className={`p-3 rounded-2xl border flex flex-wrap items-center justify-center gap-2 ${
+                        isLightMode
+                          ? 'bg-slate-50 border-slate-200 text-slate-800'
+                          : 'bg-slate-900/80 border-slate-800 text-slate-200'
+                      }`}
+                    >
+                      <span className="text-xs font-black text-emerald-500 flex items-center gap-1 mr-1">
+                        <Trophy className="w-3.5 h-3.5" />
+                        <span>Cộng điểm nhanh:</span>
+                      </span>
+                      {scoreGroups.map((sg) => {
+                        const mainTarget =
+                          pickerMode === 'numbers' ? latestPicksNumbers[0] : latestPickedItems[0];
+                        const isMatchedGroup =
+                          mainTarget !== undefined && findStudentGroupId(mainTarget) === sg.id;
+                        return (
+                          <button
+                            key={sg.id}
+                            onClick={() => triggerQuickScore(sg.id, sg.name, 1)}
+                            className={`px-2.5 py-1 rounded-xl text-xs font-black flex items-center gap-1 transition-transform active:scale-95 cursor-pointer ${
+                              isMatchedGroup
+                                ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300 shadow'
+                                : isLightMode
+                                  ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900'
+                                  : 'bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30'
+                            }`}
+                            title={`Cộng 1 điểm cho ${sg.name}`}
+                          >
+                            <Plus className="w-3 h-3 stroke-[3]" />
+                            <span>1 {sg.name}</span>
+                            {isMatchedGroup && <span>⭐</span>}
+                          </button>
+                        );
+                      })}
+                      {awardedFeedback && (
+                        <span className="text-xs font-black text-amber-400 ml-2 animate-bounce">
+                          ✨ {awardedFeedback}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
             {/* Giant Big Roll Button */}
             <div className="mt-4 flex flex-col items-center gap-2">
               <button
@@ -1552,18 +1802,91 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               <span>Đã tự động lưu vào danh sách học sinh đã gọi của lớp!</span>
             </p>
 
+            {/* Paired Question inside Winner Modal */}
+            {questionBank.enabled && currentPickedQuestion && (
+              <div className="w-full mt-4 p-4 rounded-2xl bg-amber-500/15 border-2 border-amber-400/60 text-left">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-xs font-black uppercase text-amber-300 flex items-center gap-1">
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>CÂU HỎI KIỂM TRA:</span>
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {onStartQuickTimer && (
+                      <button
+                        onClick={() => {
+                          onStartQuickTimer(45);
+                          setWinnerNotification(null);
+                        }}
+                        className="px-2.5 py-0.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer"
+                      >
+                        ⏱️ Đếm 45s
+                      </button>
+                    )}
+                    <button
+                      onClick={drawNextQuestion}
+                      className="px-2.5 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-bold cursor-pointer"
+                    >
+                      Đổi câu
+                    </button>
+                  </div>
+                </div>
+                <p className="text-base sm:text-xl font-black text-white font-display">
+                  {currentPickedQuestion}
+                </p>
+              </div>
+            )}
+
+            {/* Quick Award Score inside Winner Modal */}
+            {onQuickAwardScore && scoreGroups.length > 0 && (
+              <div className="w-full mt-3 p-3 rounded-2xl bg-slate-900/90 border border-slate-700 flex flex-wrap items-center justify-center gap-1.5">
+                <span className="text-xs font-bold text-emerald-400 mr-1">🏆 Thưởng điểm nhanh:</span>
+                {scoreGroups.map((sg) => {
+                  const firstWinner = winnerNotification.winners[0];
+                  const isMatched =
+                    firstWinner &&
+                    (findStudentGroupId(firstWinner.studentName) === sg.id ||
+                      (firstWinner.number !== undefined && findStudentGroupId(firstWinner.number) === sg.id));
+                  return (
+                    <button
+                      key={sg.id}
+                      onClick={() => triggerQuickScore(sg.id, sg.name, 1)}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-black cursor-pointer transition-transform active:scale-95 ${
+                        isMatched
+                          ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-200'
+                          : 'bg-emerald-600/25 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30'
+                      }`}
+                    >
+                      +1 {sg.name} {isMatched ? '⭐' : ''}
+                    </button>
+                  );
+                })}
+                {awardedFeedback && (
+                  <span className="text-xs font-black text-amber-300 ml-1">✨ {awardedFeedback}</span>
+                )}
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3 w-full">
               <button
                 onClick={() => setWinnerNotification(null)}
                 className="w-full sm:w-auto px-10 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black font-display text-base sm:text-lg shadow-xl shadow-amber-500/30 transition-transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>XÁC NHẬN & TIẾP TỤC</span>
+                <span>XÁC NHẬN &amp; TIẾP TỤC</span>
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Question Bank Modal */}
+      <QuestionBankModal
+        isOpen={isQuestionModalOpen}
+        onClose={() => setIsQuestionModalOpen(false)}
+        questionBank={questionBank}
+        onSaveQuestionBank={handleUpdateQuestionBank}
+        isLightMode={isLightMode}
+      />
     </div>
   );
 };

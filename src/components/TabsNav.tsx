@@ -6,12 +6,16 @@ interface TabsNavProps {
   activeTab: TabId;
   setActiveTab: (tab: TabId) => void;
   isLightMode: boolean;
+  scoreGroupCount?: number;
+  isTimerRunning?: boolean;
 }
 
 export const TabsNav: React.FC<TabsNavProps> = ({
   activeTab,
   setActiveTab,
   isLightMode,
+  scoreGroupCount = 8,
+  isTimerRunning = false,
 }) => {
   const tabs = [
     {
@@ -31,14 +35,14 @@ export const TabsNav: React.FC<TabsNavProps> = ({
     {
       id: 'timer' as TabId,
       number: '3',
-      label: 'ĐỒNG HỒ ĐẾM NGƯỢC',
+      label: isTimerRunning ? 'ĐỒNG HỒ (ĐANG CHẠY)' : 'ĐỒNG HỒ ĐẾM NGƯỢC',
       icon: Timer,
       accentColor: 'amber',
     },
     {
       id: 'scores' as TabId,
       number: '4',
-      label: 'BẢNG ĐIỂM 8 NHÓM',
+      label: `BẢNG ĐIỂM (${scoreGroupCount} NHÓM)`,
       icon: Trophy,
       accentColor: 'rose',
     },

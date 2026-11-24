@@ -1,12 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw, Plus, Bell, Volume2, Sparkles, AlertTriangle, Maximize2, Minimize2 } from 'lucide-react';
 import { soundManager } from '../services/sound';
+import { TimerSnapshot } from '../types';
+
+export interface ExternalTimerCommand {
+  id: number;
+  type: 'toggle' | 'reset' | 'startSeconds';
+  seconds?: number;
+}
 
 interface CountdownTimerTabProps {
   isLightMode: boolean;
+  isActive?: boolean;
+  onSnapshotChange?: (snapshot: TimerSnapshot) => void;
+  externalCommand?: ExternalTimerCommand | null;
 }
 
-export const CountdownTimerTab: React.FC<CountdownTimerTabProps> = ({ isLightMode }) => {
+export const CountdownTimerTab: React.FC<CountdownTimerTabProps> = ({
+  isLightMode,
+  isActive = true,
+  onSnapshotChange,
+  externalCommand,
+}) => {
   // Duration in seconds (default 5 minutes = 300 seconds)
   const [initialDuration, setInitialDuration] = useState<number>(300);
   const [timeLeft, setTimeLeft] = useState<number>(300);
@@ -79,8 +94,39 @@ export const CountdownTimerTab: React.FC<CountdownTimerTabProps> = ({ isLightMod
     };
   }, [isRunning, tickAudioEnabled]);
 
-  // Keyboard shortcut: Spacebar to Start / Pause, F to toggle fullscreen, Esc to exit
+  // Sync snapshot to parent for FloatingMiniTimer
   useEffect(() => {
+    onSnapshotChange?.({
+      timeLeft,
+      initialDuration,
+      isRunning,
+      isTimeUp,
+    });
+  }, [timeLeft, initialDuration, isRunning, isTimeUp]);
+
+  // Execute external timer commands (from FloatingMiniTimer or Quick Question Timer)
+  const lastCommandIdRef = useRef<number>(0);
+  useEffect(() => {
+    if (!externalCommand || externalCommand.id === lastCommandIdRef.current) return;
+    lastCommandIdRef.current = externalCommand.id;
+
+    if (externalCommand.type === 'toggle') {
+      togglePlayPause();
+    } else if (externalCommand.type === 'reset') {
+      handleReset();
+    } else if (externalCommand.type === 'startSeconds' && externalCommand.seconds) {
+      const secs = externalCommand.seconds;
+      setInitialDuration(secs);
+      setTimeLeft(secs);
+      setIsTimeUp(false);
+      setIsRunning(true);
+    }
+  }, [externalCommand]);
+
+  // Keyboard shortcut: Spacebar / PageDown to Start / Pause, PageUp to Reset, F to toggle fullscreen, Esc to exit
+  useEffect(() => {
+    if (!isActive) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
         return;
@@ -98,15 +144,20 @@ export const CountdownTimerTab: React.FC<CountdownTimerTabProps> = ({ isLightMod
         setIsTimerFullscreen(false);
         return;
       }
-      if (e.code === 'Space') {
+      if (e.code === 'Space' || e.key === 'PageDown') {
         e.preventDefault();
         togglePlayPause();
+        return;
+      }
+      if (e.key === 'PageUp' && !isRunning) {
+        e.preventDefault();
+        handleReset();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isRunning, timeLeft, initialDuration, isTimerFullscreen]);
+  }, [isActive, isRunning, timeLeft, initialDuration, isTimerFullscreen]);
 
   const togglePlayPause = () => {
     if (isTimeUp) {
@@ -439,8 +490,8 @@ export const CountdownTimerTab: React.FC<CountdownTimerTabProps> = ({ isLightMod
         </div>
 
         {/* Tip footer */}
-        <div className="mt-6 text-xs sm:text-sm text-slate-400 flex items-center gap-2">
-          <span>Phím tắt: Bấm <kbd className="px-2 py-0.5 rounded bg-slate-700 text-white font-mono text-xs">Phím cách (Space)</kbd> để Bắt đầu / Tạm dừng</span>
+        <div className="mt-6 text-xs sm:text-sm text-slate-400 flex items-center gap-2 flex-wrap justify-center">
+          <span>Phím tắt: <kbd className="px-2 py-0.5 rounded bg-slate-700 text-white font-mono text-xs">Space</kbd> / <kbd className="px-2 py-0.5 rounded bg-slate-700 text-white font-mono text-xs">PageDown (Bút chiếu)</kbd> Bắt đầu · Tạm dừng</span>
         </div>
       </div>
     </div>

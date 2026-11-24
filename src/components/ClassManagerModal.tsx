@@ -29,6 +29,7 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
   const [formStudentsText, setFormStudentsText] = useState<string>('');
   const [copiedExport, setCopiedExport] = useState<boolean>(false);
   const excelInputRef = useRef<HTMLInputElement | null>(null);
+  const jsonInputRef = useRef<HTMLInputElement | null>(null);
 
   // Always refresh class list from storage when modal opens
   useEffect(() => {
@@ -225,23 +226,42 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
 
   const handleExportJSON = () => {
     const json = classStorage.exportJSON();
-    navigator.clipboard.writeText(json);
+    try {
+      const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `sao-luu-danh-sach-lop-${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      navigator.clipboard.writeText(json);
+    }
     setCopiedExport(true);
     setTimeout(() => setCopiedExport(false), 2500);
   };
 
-  const handleImportJSONPrompt = () => {
-    const input = prompt('Dán chuỗi dữ liệu JSON danh sách lớp vào đây:');
-    if (input) {
-      const success = classStorage.importJSON(input);
+  const handleJsonFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const success = classStorage.importJSON(text);
       if (success) {
         refreshList();
         const first = classStorage.getClasses()[0];
         if (first) onSelectClass(first);
-        alert('Đã nhập danh sách lớp thành công!');
+        alert('Đã khôi phục danh sách lớp từ file sao lưu thành công!');
       } else {
-        alert('Dữ liệu JSON không hợp lệ!');
+        alert('File JSON không đúng định dạng danh sách lớp!');
       }
+    } catch {
+      alert('Không thể đọc file sao lưu này!');
+    } finally {
+      if (jsonInputRef.current) jsonInputRef.current.value = '';
     }
   };
 
@@ -459,10 +479,10 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
-                            <span>Sĩ số: <strong className="text-white">{cls.studentCount} HS</strong></span>
+                          <div className={`flex items-center gap-3 text-xs mt-1 ${isLightMode ? 'text-slate-600' : 'text-slate-400'}`}>
+                            <span>Sĩ số: <strong className={isLightMode ? 'text-slate-900' : 'text-white'}>{cls.studentCount} HS</strong></span>
                             <span>·</span>
-                            <span>Danh sách tên: <strong className="text-white">{cls.students.length} em</strong></span>
+                            <span>Danh sách tên: <strong className={isLightMode ? 'text-slate-900' : 'text-white'}>{cls.students.length} em</strong></span>
                           </div>
                         </div>
 
@@ -484,9 +504,11 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
                         </div>
                       </div>
 
-                      {/* Preview names snippet */}
+                       {/* Preview names snippet */}
                       {cls.students.length > 0 && (
-                        <div className="text-[11px] text-slate-400 line-clamp-1 bg-black/20 px-2.5 py-1 rounded-lg">
+                        <div className={`text-[11px] line-clamp-1 px-2.5 py-1 rounded-lg ${
+                          isLightMode ? 'bg-slate-200/70 text-slate-700' : 'bg-black/20 text-slate-400'
+                        }`}>
                           {cls.students.slice(0, 5).join(', ')}...
                         </div>
                       )}
@@ -520,33 +542,47 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
               </div>
 
               {/* Backup & Restore Tools */}
-              <div className="mt-4 pt-4 border-t border-slate-700 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className={`mt-4 pt-4 border-t flex flex-wrap items-center justify-between gap-3 text-xs ${
+                isLightMode ? 'border-slate-200' : 'border-slate-700'
+              }`}>
                 <span className="text-slate-400 font-semibold">
                   Dữ liệu được lưu an toàn trên máy tính này (Offline)
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center flex-wrap gap-2">
                   <button
                     onClick={handleExportJSON}
-                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-1.5 cursor-pointer"
-                    title="Sao chép toàn bộ danh sách lớp dạng JSON để lưu trữ"
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold cursor-pointer ${
+                      isLightMode
+                        ? 'bg-slate-200 hover:bg-slate-300 text-slate-800'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                    }`}
+                    title="Tải file sao lưu (.json) toàn bộ các lớp về máy tính"
                   >
-                    {copiedExport ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedExport ? 'Đã sao chép JSON!' : 'Sao lưu danh sách'}</span>
+                    {copiedExport ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Download className="w-3.5 h-3.5" />}
+                    <span>{copiedExport ? 'Đã tải file sao lưu!' : 'Tải file sao lưu (.json)'}</span>
                   </button>
                   <button
-                    onClick={handleImportJSONPrompt}
-                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-1.5 cursor-pointer"
-                    title="Nhập danh sách từ chuỗi JSON đã sao lưu"
+                    onClick={() => jsonInputRef.current?.click()}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold cursor-pointer ${
+                      isLightMode
+                        ? 'bg-slate-200 hover:bg-slate-300 text-slate-800'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                    }`}
+                    title="Chọn file .json sao lưu từ máy tính để khôi phục"
                   >
                     <Upload className="w-3.5 h-3.5" />
-                    <span>Khôi phục từ file</span>
+                    <span>Khôi phục từ file (.json)</span>
                   </button>
                   <button
                     onClick={handleResetToSystemDefault}
-                    className="px-3 py-1.5 rounded-lg bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 flex items-center gap-1.5 cursor-pointer"
+                    className={`px-3 py-1.5 rounded-lg border flex items-center gap-1.5 font-bold cursor-pointer ${
+                      isLightMode
+                        ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border-indigo-200'
+                        : 'bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60'
+                    }`}
                     title="Nạp lại danh sách học sinh chuẩn từ hệ thống (Đầy đủ 12 lớp: Khối 6, 7, 8, 9)"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500" />
                     <span>Nạp lớp chuẩn (Khối 6, 7, 8, 9)</span>
                   </button>
                 </div>
@@ -555,13 +591,20 @@ export const ClassManagerModal: React.FC<ClassManagerModalProps> = ({
           )}
         </div>
 
-        {/* Hidden Excel File Input */}
+        {/* Hidden File Inputs */}
         <input
           type="file"
           ref={excelInputRef}
           accept=".xlsx,.xls,.csv"
           className="hidden"
           onChange={handleExcelUpload}
+        />
+        <input
+          type="file"
+          ref={jsonInputRef}
+          accept=".json,application/json"
+          className="hidden"
+          onChange={handleJsonFileUpload}
         />
       </div>
     </div>

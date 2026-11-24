@@ -21,6 +21,8 @@ export interface GroupScore {
   score: number;
   color: string;
   badgeColor: string;
+  leader?: number | string;
+  memberCount?: number;
 }
 
 export interface SavedClass {
@@ -29,4 +31,11 @@ export interface SavedClass {
   studentCount: number;
   students: string[];
   updatedAt: number;
+}
+
+export interface TimerSnapshot {
+  timeLeft: number;
+  initialDuration: number;
+  isRunning: boolean;
+  isTimeUp: boolean;
 }
