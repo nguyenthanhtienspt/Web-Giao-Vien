@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, Maximize2, Minimize2, Sun, Moon, School, FolderOpen, UserCheck, Mic } from 'lucide-react';
+import { Volume2, VolumeX, Maximize2, Minimize2, Sun, Moon, School, FolderOpen, UserCheck, Mic, FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { soundManager } from '../services/sound';
 import { SavedClass } from '../types';
 import { sortClassesByGrade } from '../services/classStorage';
@@ -20,6 +20,8 @@ interface HeaderProps {
   absentCount: number;
   onOpenAttendance: () => void;
   onOpenNoiseMeter: () => void;
+  sheetSyncStatus: 'locked' | 'idle' | 'syncing' | 'synced' | 'error';
+  onOpenGoogleSheet: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -36,6 +38,8 @@ export const Header: React.FC<HeaderProps> = ({
   absentCount,
   onOpenAttendance,
   onOpenNoiseMeter,
+  sheetSyncStatus,
+  onOpenGoogleSheet,
 }) => {
   const handleToggleSound = () => {
     const newState = soundManager.toggle();
@@ -121,6 +125,45 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[11px] font-black tabular-nums">
                 Vắng {absentCount}
               </span>
+            )}
+          </button>
+
+          {/* Google Sheet Database Sync Button */}
+          <button
+            onClick={onOpenGoogleSheet}
+            className={`px-2.5 py-2 rounded-xl border flex items-center gap-1.5 text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
+              sheetSyncStatus === 'synced'
+                ? isLightMode
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                  : 'bg-emerald-950/60 border-emerald-700 text-emerald-300'
+                : sheetSyncStatus === 'syncing'
+                  ? 'bg-indigo-600/20 border-indigo-500 text-indigo-400'
+                  : sheetSyncStatus === 'error'
+                    ? 'bg-rose-500/15 border-rose-500/40 text-rose-400'
+                    : isLightMode
+                      ? 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
+                      : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
+            }`}
+            title="Đồng bộ dữ liệu với Google Sheet cá nhân của Thầy"
+          >
+            {sheetSyncStatus === 'syncing' ? (
+              <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+            )}
+            <span className="hidden lg:inline">
+              {sheetSyncStatus === 'syncing'
+                ? 'Đang lưu Sheet...'
+                : sheetSyncStatus === 'synced'
+                  ? 'Sheet ✓'
+                  : 'Google Sheet'}
+            </span>
+            {sheetSyncStatus !== 'locked' && sheetSyncStatus !== 'syncing' && (
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  sheetSyncStatus === 'error' ? 'bg-rose-500' : 'bg-emerald-400'
+                }`}
+              />
             )}
           </button>
 

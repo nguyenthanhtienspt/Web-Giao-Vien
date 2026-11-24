@@ -24,6 +24,7 @@ interface RandomPickerTabProps {
   splitGroups?: GroupItem[];
   onQuickAwardScore?: (groupId: number, delta: number) => void;
   onStartQuickTimer?: (seconds: number) => void;
+  onQuestionBankChanged?: () => void;
   onOpenClassManager: () => void;
   onSaveToActiveClass: (students: string[]) => void;
 }
@@ -70,6 +71,7 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
   splitGroups = [],
   onQuickAwardScore,
   onStartQuickTimer,
+  onQuestionBankChanged,
   onOpenClassManager,
   onSaveToActiveClass,
 }) => {
@@ -117,6 +119,7 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
     if (!next.enabled) {
       setCurrentPickedQuestion(null);
     }
+    onQuestionBankChanged?.();
   };
 
   const drawNextQuestion = (): string | null => {
@@ -263,6 +266,11 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
     });
     drawNextQuestion();
   };
+
+  // Reload question bank when customList / external sync refreshes
+  useEffect(() => {
+    setQuestionBank(classroomStateStorage.getQuestionBank());
+  }, [customList]);
 
   // Load saved picked history when switching active class
   useEffect(() => {

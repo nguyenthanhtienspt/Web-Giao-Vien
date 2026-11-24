@@ -11,6 +11,7 @@ interface GroupSplitterTabProps {
   activeClassId?: string;
   absentStudents?: string[];
   onGroupsChange?: (groups: GroupItem[]) => void;
+  onUserMutate?: () => void;
   onSyncToScoreboard?: (groups: GroupItem[]) => void;
 }
 
@@ -36,6 +37,7 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
   activeClassId = 'default_class',
   absentStudents = [],
   onGroupsChange,
+  onUserMutate,
   onSyncToScoreboard,
 }) => {
   const [sourceType, setSourceType] = useState<'numbers' | 'customList'>(() =>
@@ -124,7 +126,10 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
     setGroups(newGroups);
     setTouchMoveTarget(null);
     classroomStateStorage.saveSplitGroupsForClass(activeClassId, newGroups);
-    if (playSound) soundManager.playWinner();
+    if (playSound) {
+      soundManager.playWinner();
+      onUserMutate?.();
+    }
   };
 
   // Load saved groups when switching classes; only auto-split if class has none saved
@@ -234,6 +239,7 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
 
     setTouchMoveTarget(null);
     soundManager.playPointAdd();
+    onUserMutate?.();
   };
 
   // Drag & drop handlers
@@ -308,6 +314,7 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
       })
     );
     soundManager.playPointAdd();
+    onUserMutate?.();
   };
 
   const handleSelectLeaderDropdown = (groupId: number, selectedValue: string) => {
@@ -323,6 +330,7 @@ export const GroupSplitterTab: React.FC<GroupSplitterTabProps> = ({
       })
     );
     soundManager.playPointAdd();
+    onUserMutate?.();
   };
 
   const handleCopy = () => {

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { TabsNav } from './components/TabsNav';
 import { RandomPickerTab } from './components/RandomPickerTab';
@@ -14,6 +14,7 @@ import { ClassManagerModal } from './components/ClassManagerModal';
 import { AttendanceModal } from './components/AttendanceModal';
 import { NoiseMeterModal } from './components/NoiseMeterModal';
 import { FloatingMiniTimer } from './components/FloatingMiniTimer';
+import { GoogleSheetModal } from './components/GoogleSheetModal';
 import { TabId, SavedClass, GroupItem, GroupScore, TimerSnapshot } from './types';
 import { classStorage } from './services/classStorage';
 import {
@@ -22,9 +23,10 @@ import {
   convertSplitGroupsToScoreGroups,
   SCORE_GROUP_PALETTES,
 } from './services/classroomStateStorage';
+import { googleSheetSync } from './services/googleSheetSync';
 
 export default function App() {
-  // Saved classes state (persisted locally on device)
+  // Saved classes state (persisted locally on device + optional Google Sheet sync)
   const [savedClasses, setSavedClasses] = useState<SavedClass[]>(() => classStorage.getClasses());
   const [activeClass, setActiveClass] = useState<SavedClass | null>(() => {
     const classes = classStorage.getClasses();
@@ -38,6 +40,13 @@ export default function App() {
   const [isClassManagerOpen, setIsClassManagerOpen] = useState<boolean>(false);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState<boolean>(false);
   const [isNoiseMeterOpen, setIsNoiseMeterOpen] = useState<boolean>(false);
+  const [isGoogleSheetOpen, setIsGoogleSheetOpen] = useState<boolean>(false);
+
+  // Google Sheet background sync status
+  const [sheetSyncStatus, setSheetSyncStatus] = useState<'locked' | 'idle' | 'syncing' | 'synced' | 'error'>(() =>
+    googleSheetSync.isReadyForSync() ? 'synced' : 'locked'
+  );
+  const debounceSyncTimerRef = useRef<number | null>(null);
 
   // Global states synced with active class
   const [studentCount, setStudentCount] = useState<number>(() => activeClass?.studentCount || 40);
@@ -73,6 +82,61 @@ export default function App() {
   const [isLightMode, setIsLightMode] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
+  // Refresh all in-memory states from localStorage (e.g. right after pulling from Google Sheet)
+  const reloadFromLocalStorage = () => {
+    const classes = classStorage.getClasses();
+    setSavedClasses(classes);
+    const activeId = classStorage.getActiveClassId();
+    const targetClass = classes.find((c) => c.id === activeId) || classes[0] || null;
+    setActiveClass(targetClass);
+    if (targetClass) {
+      setStudentCount(targetClass.studentCount);
+      setCustomList([...(targetClass.students || [])]);
+      setAbsentStudents(classroomStateStorage.getAbsentForClass(targetClass.id));
+      setSplitGroups(classroomStateStorage.getSplitGroupsForClass(targetClass.id) || []);
+      setScoreGroups(classroomStateStorage.getScoreboardForClass(targetClass.id));
+    }
+  };
+
+  // Auto-pull once on initial app open if PIN is already unlocked on this personal device
+  useEffect(() => {
+    if (googleSheetSync.isReadyForSync()) {
+      setSheetSyncStatus('syncing');
+      googleSheetSync.pullFromSheet().then((res) => {
+        if (res.ok) {
+          reloadFromLocalStorage();
+          setSheetSyncStatus('synced');
+        } else {
+          setSheetSyncStatus('error');
+        }
+      });
+    }
+    return () => {
+      if (debounceSyncTimerRef.current) {
+        window.clearTimeout(debounceSyncTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Debounced background push to Google Sheet (2.5s after any user change)
+  const scheduleBackgroundSheetPush = () => {
+    if (!googleSheetSync.isReadyForSync() || !googleSheetSync.isAutoSyncEnabled()) {
+      return;
+    }
+    if (debounceSyncTimerRef.current) {
+      window.clearTimeout(debounceSyncTimerRef.current);
+    }
+    debounceSyncTimerRef.current = window.setTimeout(async () => {
+      setSheetSyncStatus('syncing');
+      const res = await googleSheetSync.pushToSheet();
+      setSheetSyncStatus(res.ok ? 'synced' : 'error');
+    }, 2500);
+  };
+
+  const refreshSheetBadge = () => {
+    setSheetSyncStatus(googleSheetSync.isReadyForSync() ? 'synced' : 'locked');
+  };
+
   // Reload per-class states when activeClassId changes
   useEffect(() => {
     setAbsentStudents(classroomStateStorage.getAbsentForClass(activeClassId));
@@ -93,6 +157,7 @@ export default function App() {
   const handleChangeAbsent = (nextAbsent: string[]) => {
     setAbsentStudents(nextAbsent);
     classroomStateStorage.saveAbsentForClass(activeClassId, nextAbsent);
+    scheduleBackgroundSheetPush();
   };
 
   // Update scoreboard for active class (with optional Undo history)
@@ -102,6 +167,7 @@ export default function App() {
     }
     setScoreGroups(next);
     classroomStateStorage.saveScoreboardForClass(activeClassId, next);
+    scheduleBackgroundSheetPush();
   };
 
   const handleUndoScore = () => {
@@ -110,6 +176,7 @@ export default function App() {
     setScoreUndoStack((prev) => prev.slice(0, -1));
     setScoreGroups(previous);
     classroomStateStorage.saveScoreboardForClass(activeClassId, previous);
+    scheduleBackgroundSheetPush();
   };
 
   const handleChangeScoreGroupCount = (count: number) => {
@@ -164,6 +231,7 @@ export default function App() {
     setSavedClasses(classStorage.getClasses());
     setCustomList(students);
     setStudentCount(updated.studentCount);
+    scheduleBackgroundSheetPush();
     alert(`Đã lưu danh sách ${students.length} học sinh vào "${updated.name}" thành công!`);
   };
 
@@ -230,6 +298,8 @@ export default function App() {
         absentCount={absentStudents.length}
         onOpenAttendance={() => setIsAttendanceOpen(true)}
         onOpenNoiseMeter={() => setIsNoiseMeterOpen(true)}
+        sheetSyncStatus={sheetSyncStatus}
+        onOpenGoogleSheet={() => setIsGoogleSheetOpen(true)}
       />
 
       {/* 4 Feature Tabs Navigation */}
@@ -256,6 +326,7 @@ export default function App() {
             splitGroups={splitGroups}
             onQuickAwardScore={handleQuickAwardScore}
             onStartQuickTimer={handleStartQuickTimer}
+            onQuestionBankChanged={scheduleBackgroundSheetPush}
             onOpenClassManager={() => setIsClassManagerOpen(true)}
             onSaveToActiveClass={handleSaveToActiveClass}
           />
@@ -269,6 +340,7 @@ export default function App() {
             activeClassId={activeClassId}
             absentStudents={absentStudents}
             onGroupsChange={setSplitGroups}
+            onUserMutate={scheduleBackgroundSheetPush}
             onSyncToScoreboard={handleSyncSplitToScoreboard}
           />
         </div>
@@ -324,6 +396,7 @@ export default function App() {
               handleSelectClass(refreshed[0]);
             }
           }
+          scheduleBackgroundSheetPush();
         }}
         activeClass={activeClass}
         onSelectClass={handleSelectClass}
@@ -348,6 +421,19 @@ export default function App() {
         isLightMode={isLightMode}
       />
 
+      {/* Personal Google Sheet Database Modal */}
+      <GoogleSheetModal
+        isOpen={isGoogleSheetOpen}
+        onClose={() => setIsGoogleSheetOpen(false)}
+        isLightMode={isLightMode}
+        syncStatus={sheetSyncStatus === 'locked' ? 'idle' : sheetSyncStatus}
+        onAfterPull={() => {
+          reloadFromLocalStorage();
+          setSheetSyncStatus('synced');
+        }}
+        onSyncStateChanged={refreshSheetBadge}
+      />
+
       {/* Quiet Projector Footer */}
       <footer
         className={`py-2 px-6 border-t text-center text-xs transition-colors ${
@@ -370,7 +456,9 @@ export default function App() {
               </kbd>{' '}
               Thao tác
             </span>
-            <span>Đã lưu trên thiết bị</span>
+            <span>
+              {sheetSyncStatus === 'synced' ? '📊 Đã kết nối Google Sheet' : 'Lưu cục bộ trên thiết bị'}
+            </span>
           </div>
         </div>
       </footer>
