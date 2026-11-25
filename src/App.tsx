@@ -198,16 +198,43 @@ export default function App() {
     scheduleBackgroundSheetPush();
   };
 
-  // Update individual student monthly score (with Undo history)
-  const handleUpdateStudentMonthlyScore = (
+  // Add an individual grade (0..10, e.g. 7, 8, 9, 8.5) to a student's monthly record
+  const handleAddStudentGrade = (
     studentName: string,
-    delta: number,
+    grade: number,
     monthKey: string = selectedMonth
   ) => {
+    const cleanGrade = Math.round(Math.max(0, Math.min(10, grade)) * 100) / 100;
     setStudentScoreUndoStack((prev) => [...prev.slice(-29), monthlyScores]);
     const monthRecord = { ...(monthlyScores[monthKey] || {}) };
-    const nextVal = Math.max(0, (monthRecord[studentName] || 0) + delta);
-    monthRecord[studentName] = nextVal;
+    const existingGrades = [...(monthRecord[studentName] || [])];
+    monthRecord[studentName] = [...existingGrades, cleanGrade];
+    const nextAllMonths: ClassMonthlyStudentScores = {
+      ...monthlyScores,
+      [monthKey]: monthRecord,
+    };
+    setMonthlyScores(nextAllMonths);
+    classroomStateStorage.saveMonthlyScoresForClass(activeClassId, nextAllMonths);
+    scheduleBackgroundSheetPush();
+  };
+
+  // Remove a specific grade by index from a student's monthly record
+  const handleRemoveStudentGrade = (
+    studentName: string,
+    gradeIndex: number,
+    monthKey: string = selectedMonth
+  ) => {
+    const monthRecord = { ...(monthlyScores[monthKey] || {}) };
+    const existingGrades = [...(monthRecord[studentName] || [])];
+    if (gradeIndex < 0 || gradeIndex >= existingGrades.length) return;
+
+    setStudentScoreUndoStack((prev) => [...prev.slice(-29), monthlyScores]);
+    existingGrades.splice(gradeIndex, 1);
+    if (existingGrades.length > 0) {
+      monthRecord[studentName] = existingGrades;
+    } else {
+      delete monthRecord[studentName];
+    }
     const nextAllMonths: ClassMonthlyStudentScores = {
       ...monthlyScores,
       [monthKey]: monthRecord,
@@ -385,8 +412,8 @@ export default function App() {
             onQuickAwardScore={handleQuickAwardScore}
             selectedMonthLabel={formatMonthLabel(selectedMonth)}
             currentMonthStudentScores={monthlyScores[selectedMonth] || {}}
-            onQuickAwardStudentScore={(stName, delta) =>
-              handleUpdateStudentMonthlyScore(stName, delta, selectedMonth)
+            onQuickAwardStudentScore={(stName, grade) =>
+              handleAddStudentGrade(stName, grade, selectedMonth)
             }
             onStartQuickTimer={handleStartQuickTimer}
             onQuestionBankChanged={scheduleBackgroundSheetPush}
@@ -433,7 +460,8 @@ export default function App() {
             monthlyScores={monthlyScores}
             selectedMonth={selectedMonth}
             onSelectMonth={setSelectedMonth}
-            onUpdateStudentScore={handleUpdateStudentMonthlyScore}
+            onAddStudentGrade={handleAddStudentGrade}
+            onRemoveStudentGrade={handleRemoveStudentGrade}
             onResetMonthScores={handleResetMonthScores}
             canUndoStudentScore={studentScoreUndoStack.length > 0}
             onUndoStudentScore={handleUndoStudentMonthlyScore}

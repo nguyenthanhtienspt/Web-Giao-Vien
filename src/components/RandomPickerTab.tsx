@@ -4,7 +4,7 @@ import { RotateCcw, Shuffle, Sparkles, CheckCircle2, Layers, FileText, Hash, Edi
 import { soundManager } from '../services/sound';
 import { SavedClass, GroupScore, GroupItem } from '../types';
 import { sortVietnameseStudentNames } from '../services/classStorage';
-import { classroomStateStorage, QuestionBankState } from '../services/classroomStateStorage';
+import { classroomStateStorage, QuestionBankState, calcGradeStats } from '../services/classroomStateStorage';
 import { QuestionBankModal } from './QuestionBankModal';
 import { DuckRaceGame } from './DuckRaceGame';
 import { MarbleDropGame } from './MarbleDropGame';
@@ -24,8 +24,8 @@ interface RandomPickerTabProps {
   splitGroups?: GroupItem[];
   onQuickAwardScore?: (groupId: number, delta: number) => void;
   selectedMonthLabel?: string;
-  currentMonthStudentScores?: Record<string, number>;
-  onQuickAwardStudentScore?: (studentName: string, delta: number) => void;
+  currentMonthStudentScores?: Record<string, number[]>;
+  onQuickAwardStudentScore?: (studentName: string, grade: number) => void;
   onStartQuickTimer?: (seconds: number) => void;
   onQuestionBankChanged?: () => void;
   onOpenClassManager: () => void;
@@ -167,10 +167,13 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
     window.setTimeout(() => setAwardedFeedback(null), 2200);
   };
 
-  const triggerQuickStudentScore = (studentName: string, delta: number) => {
-    onQuickAwardStudentScore?.(studentName, delta);
+  const triggerQuickStudentScore = (studentName: string, grade: number) => {
+    onQuickAwardStudentScore?.(studentName, grade);
     soundManager.playPointAdd();
-    setAwardedFeedback(`Đã +${delta}đ cá nhân (${selectedMonthLabel}) cho ${studentName}!`);
+    if (grade >= 9) {
+      fireConfetti();
+    }
+    setAwardedFeedback(`Đã ghi điểm ${grade} (${selectedMonthLabel}) cho ${studentName}!`);
     window.setTimeout(() => setAwardedFeedback(null), 2400);
   };
 
@@ -1297,7 +1300,7 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
                     </div>
                   )}
 
-                  {/* Quick Individual Student Monthly Score Bar */}
+                  {/* Quick Individual Student Oral Grade Bar */}
                   {onQuickAwardStudentScore && (() => {
                     const pickedStudentNames =
                       pickerMode === 'numbers'
@@ -1316,27 +1319,38 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
                       >
                         <span className="text-xs font-black text-emerald-500 flex items-center gap-1 mr-1">
                           <GraduationCap className="w-4 h-4" />
-                          <span>Điểm cá nhân ({selectedMonthLabel}):</span>
+                          <span>Chấm điểm cá nhân ({selectedMonthLabel}):</span>
                         </span>
                         {pickedStudentNames.map((stName) => {
-                          const curPts = currentMonthStudentScores[stName] || 0;
+                          const gList = currentMonthStudentScores[stName] || [];
+                          const stats = calcGradeStats(gList);
                           return (
                             <div key={stName} className="flex items-center flex-wrap gap-1.5">
                               <span className="text-xs font-bold">
                                 {stName}{' '}
-                                <strong className="text-amber-500 font-mono">({curPts}đ)</strong>:
+                                {gList.length > 0 && (
+                                  <strong className="text-amber-500 font-mono">
+                                    ({gList.join(', ')} · TB {stats.avg.toFixed(1)})
+                                  </strong>
+                                )}
+                                :
                               </span>
-                              {[1, 2, 5].map((pts) => (
+                              {[5, 6, 7, 8, 9, 10].map((grade) => (
                                 <button
-                                  key={pts}
-                                  onClick={() => triggerQuickStudentScore(stName, pts)}
-                                  className={`px-2.5 py-1 rounded-xl text-xs font-black transition-transform active:scale-95 cursor-pointer ${
-                                    pts === 5
+                                  key={grade}
+                                  onClick={() => triggerQuickStudentScore(stName, grade)}
+                                  className={`w-8 h-7 rounded-lg text-xs font-display font-black transition-transform active:scale-95 cursor-pointer ${
+                                    grade >= 9
                                       ? 'bg-amber-400 text-slate-950 shadow'
-                                      : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs'
+                                      : grade >= 7
+                                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs'
+                                        : isLightMode
+                                          ? 'bg-slate-200 hover:bg-slate-300 text-slate-800'
+                                          : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
                                   }`}
+                                  title={`Ghi điểm ${grade} cho ${stName}`}
                                 >
-                                  +{pts}đ
+                                  {grade}
                                 </button>
                               ))}
                             </div>
@@ -1906,32 +1920,41 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
               </div>
             )}
 
-            {/* Quick Individual Student Monthly Score inside Winner Modal */}
+            {/* Quick Individual Student Oral Grade inside Winner Modal */}
             {onQuickAwardStudentScore && winnerNotification.winners.length > 0 && (
               <div className="w-full mt-3 p-3 rounded-2xl bg-emerald-950/50 border border-emerald-600/40 flex flex-wrap items-center justify-center gap-2">
                 <span className="text-xs font-black text-emerald-300 flex items-center gap-1">
                   <GraduationCap className="w-4 h-4" />
-                  <span>Cộng điểm cá nhân ({selectedMonthLabel}):</span>
+                  <span>Chấm điểm ({selectedMonthLabel}):</span>
                 </span>
                 {winnerNotification.winners.map((w) => {
                   if (!customList.includes(w.studentName)) return null;
-                  const curPts = currentMonthStudentScores[w.studentName] || 0;
+                  const gList = currentMonthStudentScores[w.studentName] || [];
+                  const stats = calcGradeStats(gList);
                   return (
                     <div key={String(w.id)} className="flex items-center flex-wrap gap-1.5">
                       <span className="text-xs font-bold text-white">
-                        {w.studentName} <strong className="text-amber-300">({curPts}đ)</strong>:
+                        {w.studentName}{' '}
+                        {gList.length > 0 && (
+                          <strong className="text-amber-300">
+                            ({gList.join(', ')} · TB {stats.avg.toFixed(1)})
+                          </strong>
+                        )}
+                        :
                       </span>
-                      {[1, 2, 5].map((pts) => (
+                      {[5, 6, 7, 8, 9, 10].map((grade) => (
                         <button
-                          key={pts}
-                          onClick={() => triggerQuickStudentScore(w.studentName, pts)}
-                          className={`px-2.5 py-1 rounded-xl text-xs font-black cursor-pointer transition-transform active:scale-95 ${
-                            pts === 5
+                          key={grade}
+                          onClick={() => triggerQuickStudentScore(w.studentName, grade)}
+                          className={`w-8 h-7 rounded-lg text-xs font-display font-black cursor-pointer transition-transform active:scale-95 ${
+                            grade >= 9
                               ? 'bg-amber-400 text-slate-950'
-                              : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                              : grade >= 7
+                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600'
                           }`}
                         >
-                          +{pts}đ
+                          {grade}
                         </button>
                       ))}
                     </div>

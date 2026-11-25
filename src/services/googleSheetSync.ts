@@ -1,6 +1,6 @@
 import { SavedClass, GroupScore, GroupItem, ClassMonthlyStudentScores } from '../types';
 import { classStorage, sortClassesByGrade } from './classStorage';
-import { classroomStateStorage } from './classroomStateStorage';
+import { classroomStateStorage, normalizeMonthlyScores } from './classroomStateStorage';
 
 const URL_STORAGE_KEY = 'tro_ly_gsheet_webapp_url_v1';
 const PIN_REMEMBER_KEY = 'tro_ly_gsheet_pin_remember_v1';
@@ -370,7 +370,10 @@ export const googleSheetSync = {
               classroomStateStorage.saveScoreboardForClass(classId, env.groups);
             }
             if (env.monthlyStudentScores && typeof env.monthlyStudentScores === 'object') {
-              classroomStateStorage.saveMonthlyScoresForClass(classId, env.monthlyStudentScores);
+              classroomStateStorage.saveMonthlyScoresForClass(
+                classId,
+                normalizeMonthlyScores(env.monthlyStudentScores)
+              );
             }
           }
           if (Array.isArray(st.absent)) {

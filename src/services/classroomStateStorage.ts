@@ -54,6 +54,56 @@ export function formatMonthLabel(monthKey: string): string {
   return `Tháng ${String(m).padStart(2, '0')} / ${yStr}`;
 }
 
+export function normalizeGradeList(raw: unknown): number[] {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((v) => Number(v))
+      .filter((n) => Number.isFinite(n) && n >= 0 && n <= 10)
+      .map((n) => Math.round(n * 100) / 100);
+  }
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0 && raw <= 10) {
+    return [Math.round(raw * 100) / 100];
+  }
+  return [];
+}
+
+export function normalizeMonthlyScores(raw: unknown): ClassMonthlyStudentScores {
+  if (!raw || typeof raw !== 'object') return {};
+  const result: ClassMonthlyStudentScores = {};
+  Object.entries(raw as Record<string, unknown>).forEach(([monthKey, monthVal]) => {
+    if (!monthVal || typeof monthVal !== 'object') return;
+    const cleanMonth: Record<string, number[]> = {};
+    Object.entries(monthVal as Record<string, unknown>).forEach(([studentName, val]) => {
+      const grades = normalizeGradeList(val);
+      if (grades.length > 0) {
+        cleanMonth[studentName] = grades;
+      }
+    });
+    result[monthKey] = cleanMonth;
+  });
+  return result;
+}
+
+export function calcGradeStats(grades: number[]): {
+  count: number;
+  sum: number;
+  avg: number;
+  max: number;
+} {
+  if (!grades || grades.length === 0) {
+    return { count: 0, sum: 0, avg: 0, max: 0 };
+  }
+  const sum = grades.reduce((acc, g) => acc + g, 0);
+  const avg = Math.round((sum / grades.length) * 10) / 10;
+  const max = Math.max(...grades);
+  return {
+    count: grades.length,
+    sum: Math.round(sum * 100) / 100,
+    avg,
+    max,
+  };
+}
+
 export interface QuestionBankState {
   enabled: boolean;
   avoidRepeat: boolean;
@@ -175,11 +225,10 @@ export const classroomStateStorage = {
     writeJsonMap(SCOREBOARD_BY_CLASS_KEY, map);
   },
 
-  // 4b. Individual student scores by month per class: classId -> { "YYYY-MM": { [studentName]: score } }
+  // 4b. Individual student grades by month per class: classId -> { "YYYY-MM": { [studentName]: [7, 8, 9] } }
   getMonthlyScoresForClass(classId: string): ClassMonthlyStudentScores {
-    const map = readJsonMap<Record<string, ClassMonthlyStudentScores>>(STUDENT_MONTHLY_SCORES_KEY, {});
-    const clsData = map[classId];
-    return clsData && typeof clsData === 'object' ? clsData : {};
+    const map = readJsonMap<Record<string, unknown>>(STUDENT_MONTHLY_SCORES_KEY, {});
+    return normalizeMonthlyScores(map[classId]);
   },
 
   saveMonthlyScoresForClass(classId: string, monthlyScores: ClassMonthlyStudentScores): void {

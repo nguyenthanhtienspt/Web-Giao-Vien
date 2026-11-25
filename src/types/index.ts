@@ -26,9 +26,10 @@ export interface GroupScore {
 }
 
 /**
- * Map of monthKey ("YYYY-MM") -> { [studentName]: score }
+ * Map of monthKey ("YYYY-MM") -> { [studentName]: number[] }
+ * Stores each individual grade (e.g. [7, 8, 9]) earned by a student in that month.
  */
-export type ClassMonthlyStudentScores = Record<string, Record<string, number>>;
+export type ClassMonthlyStudentScores = Record<string, Record<string, number[]>>;
 
 export interface SavedClass {
   id: string;
