@@ -40,6 +40,7 @@ export const GoogleSheetModal: React.FC<GoogleSheetModalProps> = ({
     googleSheetSync.getScriptUrl() ? 'sync' : 'sync'
   );
   const [scriptUrl, setScriptUrl] = useState(() => googleSheetSync.getScriptUrl());
+  const [showUrlField, setShowUrlField] = useState(() => !googleSheetSync.getScriptUrl());
   const [pin, setPin] = useState(() => googleSheetSync.getActivePin());
   const [rememberPin, setRememberPin] = useState(() => googleSheetSync.isPinRemembered());
   const [autoSync, setAutoSync] = useState(() => googleSheetSync.isAutoSyncEnabled());
@@ -235,34 +236,50 @@ export const GoogleSheetModal: React.FC<GoogleSheetModalProps> = ({
                 </div>
               </div>
 
-              {/* Script URL */}
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    1. Đường link Web App Google Apps Script:
-                  </label>
-                  {!scriptUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setTab('guide')}
-                      className="text-xs font-bold text-indigo-500 hover:underline cursor-pointer"
-                    >
-                      Chưa có link? Xem hướng dẫn 2 phút →
-                    </button>
-                  )}
+              {/* Script URL (collapsed cleanly when already configured) */}
+              {showUrlField ? (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+                      Đường link Web App Google Apps Script:
+                    </label>
+                    {scriptUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setShowUrlField(false)}
+                        className="text-xs font-bold text-slate-400 hover:underline cursor-pointer"
+                      >
+                        Ẩn đường link
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="url"
+                    value={scriptUrl}
+                    onChange={(e) => setScriptUrl(e.target.value)}
+                    placeholder="https://script.google.com/macros/s/AKfycb.../exec"
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-mono outline-none ${
+                      isLightMode
+                        ? 'bg-slate-50 border-slate-300 text-slate-900 focus:border-emerald-500'
+                        : 'bg-slate-950 border-slate-700 text-white focus:border-emerald-400'
+                    }`}
+                  />
                 </div>
-                <input
-                  type="url"
-                  value={scriptUrl}
-                  onChange={(e) => setScriptUrl(e.target.value)}
-                  placeholder="https://script.google.com/macros/s/AKfycb.../exec"
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-mono outline-none ${
-                    isLightMode
-                      ? 'bg-slate-50 border-slate-300 text-slate-900 focus:border-emerald-500'
-                      : 'bg-slate-950 border-slate-700 text-white focus:border-emerald-400'
-                  }`}
-                />
-              </div>
+              ) : (
+                <div className="flex items-center justify-between text-xs px-1">
+                  <span className="text-emerald-500 font-bold flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Đã gắn sẵn đường link kết nối Google Sheet của Thầy</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowUrlField(true)}
+                    className="text-slate-400 hover:text-indigo-400 underline font-semibold cursor-pointer"
+                  >
+                    Đổi link khác
+                  </button>
+                </div>
+              )}
 
               {/* Secret PIN */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
@@ -273,7 +290,7 @@ export const GoogleSheetModal: React.FC<GoogleSheetModalProps> = ({
                     ) : (
                       <Lock className="w-3.5 h-3.5 text-amber-500" />
                     )}
-                    <span>2. Mã PIN bảo mật của Thầy:</span>
+                    <span>Mã PIN bảo mật của Thầy:</span>
                   </label>
                   <input
                     type="password"

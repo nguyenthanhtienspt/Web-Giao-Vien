@@ -9,7 +9,10 @@ const AUTOSYNC_KEY = 'tro_ly_gsheet_autosync_v1';
 const SHEET_NAME_KEY = 'tro_ly_gsheet_name_v1';
 const LAST_SYNC_KEY = 'tro_ly_gsheet_last_sync_v1';
 
-const ENV_DEFAULT_URL = (import.meta.env.VITE_GSHEET_SCRIPT_URL as string | undefined) || '';
+const BUILTIN_SCRIPT_URL =
+  'https://script.google.com/macros/s/AKfycby_H1Q-7AlZ41G3gUzQWF2Gb7uZdYLVKjza4lmvsM3gWvkIlJLctoOO8KjCI-R94VTC/exec';
+const ENV_DEFAULT_URL =
+  (import.meta.env.VITE_GSHEET_SCRIPT_URL as string | undefined) || BUILTIN_SCRIPT_URL;
 
 export interface RemoteClassStateItem {
   className: string;
