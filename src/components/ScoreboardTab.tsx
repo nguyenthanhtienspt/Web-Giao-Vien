@@ -87,6 +87,8 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
   const [editName, setEditName] = useState<string>('');
   const [showCeremony, setShowCeremony] = useState<boolean>(false);
   const [studentQuery, setStudentQuery] = useState<string>('');
+  const [activeQuickStudent, setActiveQuickStudent] = useState<string | null>(null);
+  const [directScoreInput, setDirectScoreInput] = useState<string>('');
 
   const [celebrationBanner, setCelebrationBanner] = useState<{
     groupName: string;
@@ -252,6 +254,18 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
       launchGrandFireworks(xRatio);
       triggerCelebrationBanner(studentName, newScore, `ĐẠT ${newScore} ĐIỂM ${formatMonthLabel(selectedMonth).toUpperCase()}!`);
     }
+  };
+
+  const handleSetExactStudentScore = (studentName: string, targetScore: number) => {
+    const cleanTarget = Math.max(0, Math.round(targetScore));
+    const oldScore = currentMonthMap[studentName] || 0;
+    const delta = cleanTarget - oldScore;
+    if (delta === 0) {
+      setActiveQuickStudent(null);
+      return;
+    }
+    handleModifyStudentScore(studentName, delta);
+    setActiveQuickStudent(null);
   };
 
   const handleResetCurrentMonth = () => {
@@ -745,71 +759,158 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {visibleStudents.map((st) => {
                   const rank = getStudentRank(st.score);
+                  const isExpanded = activeQuickStudent === st.name;
                   return (
                     <div
                       key={`${st.stt}_${st.name}`}
-                      className={`px-3 py-2 rounded-xl border flex items-center justify-between gap-2 transition-colors ${
-                        rank === 1
+                      className={`px-3 py-2 rounded-xl border flex flex-col gap-2 transition-colors ${
+                        isExpanded
                           ? isLightMode
-                            ? 'bg-amber-50/60 border-amber-300'
-                            : 'bg-amber-950/20 border-amber-500/50'
-                          : isLightMode
-                            ? 'bg-white border-slate-200 hover:border-slate-300'
-                            : 'bg-slate-900/85 border-slate-800 hover:border-slate-700'
+                            ? 'bg-indigo-50/70 border-indigo-400 shadow-sm'
+                            : 'bg-indigo-950/30 border-indigo-500 shadow-md'
+                          : rank === 1
+                            ? isLightMode
+                              ? 'bg-amber-50/60 border-amber-300'
+                              : 'bg-amber-950/20 border-amber-500/50'
+                            : isLightMode
+                              ? 'bg-white border-slate-200 hover:border-slate-300'
+                              : 'bg-slate-900/85 border-slate-800 hover:border-slate-700'
                       } ${st.isAbsent ? 'opacity-45' : ''}`}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className={`w-6 h-6 rounded-md text-[11px] font-black flex items-center justify-center shrink-0 tabular-nums ${
-                            isLightMode ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'
-                          }`}
-                        >
-                          {st.stt}
-                        </span>
-                        <span className="font-bold text-xs sm:text-sm truncate">
-                          {st.name}
-                        </span>
-                        {st.isAbsent && (
-                          <span className="text-[10px] text-rose-500 font-bold shrink-0">Vắng</span>
-                        )}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={`w-6 h-6 rounded-md text-[11px] font-black flex items-center justify-center shrink-0 tabular-nums ${
+                              isLightMode ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            {st.stt}
+                          </span>
+                          <span className="font-bold text-xs sm:text-sm truncate">
+                            {st.name}
+                          </span>
+                          {st.isAbsent && (
+                            <span className="text-[10px] text-rose-500 font-bold shrink-0">Vắng</span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={(e) => handleModifyStudentScore(st.name, -1, e)}
+                            disabled={st.score <= 0}
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-90 disabled:opacity-25 ${
+                              isLightMode
+                                ? 'bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600'
+                                : 'bg-slate-800 hover:bg-rose-950 text-slate-300 hover:text-rose-400'
+                            }`}
+                            title="Trừ 1 điểm"
+                          >
+                            <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isExpanded) {
+                                setActiveQuickStudent(null);
+                              } else {
+                                setActiveQuickStudent(st.name);
+                                setDirectScoreInput(String(st.score));
+                              }
+                            }}
+                            className={`min-w-[2.25rem] px-1.5 h-7 rounded-lg text-center font-display font-black text-base sm:text-lg tabular-nums transition-colors cursor-pointer ${
+                              isLightMode ? 'hover:bg-indigo-100' : 'hover:bg-slate-800'
+                            } ${
+                              st.score > 0
+                                ? rank === 1
+                                  ? 'text-amber-500'
+                                  : 'text-emerald-500'
+                                : isLightMode
+                                  ? 'text-slate-400'
+                                  : 'text-slate-500'
+                            }`}
+                            title="Bấm vào số điểm để cộng nhiều điểm (+2, +5, +10), nhập số bất kỳ hoặc trừ đổi thưởng"
+                          >
+                            {st.score}
+                          </button>
+
+                          <button
+                            onClick={(e) => handleModifyStudentScore(st.name, 1, e)}
+                            className="w-8 h-7 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
+                            title="Cộng 1 điểm"
+                          >
+                            <Plus className="w-4 h-4 stroke-[3]" />
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          onClick={(e) => handleModifyStudentScore(st.name, -1, e)}
-                          disabled={st.score <= 0}
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-90 disabled:opacity-25 ${
-                            isLightMode
-                              ? 'bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600'
-                              : 'bg-slate-800 hover:bg-rose-950 text-slate-300 hover:text-rose-400'
-                          }`}
-                          title="Trừ 1 điểm"
-                        >
-                          <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
-                        </button>
-
-                        <span
-                          className={`w-8 text-center font-display font-black text-base sm:text-lg tabular-nums ${
-                            st.score > 0
-                              ? rank === 1
-                                ? 'text-amber-500'
-                                : 'text-emerald-500'
-                              : isLightMode
-                                ? 'text-slate-300'
-                                : 'text-slate-600'
+                      {/* Expandable Multi-Point & Redemption Strip when clicking the score */}
+                      {isExpanded && (
+                        <div
+                          className={`pt-2 border-t flex flex-wrap items-center justify-between gap-1.5 text-xs animate-in fade-in duration-150 ${
+                            isLightMode ? 'border-indigo-200' : 'border-slate-800'
                           }`}
                         >
-                          {st.score}
-                        </span>
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {[2, 5, 10].map((pts) => (
+                              <button
+                                key={pts}
+                                type="button"
+                                onClick={(e) => {
+                                  handleModifyStudentScore(st.name, pts, e);
+                                  setActiveQuickStudent(null);
+                                }}
+                                className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black cursor-pointer active:scale-95"
+                              >
+                                +{pts}
+                              </button>
+                            ))}
+                            {st.score >= 5 && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  handleModifyStudentScore(st.name, -5, e);
+                                  setActiveQuickStudent(null);
+                                }}
+                                className="px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 border border-amber-500/30 font-bold cursor-pointer"
+                                title="Trừ 5 điểm khi học sinh quy đổi quà / đổi điểm thưởng"
+                              >
+                                −5 đổi quà
+                              </button>
+                            )}
+                          </div>
 
-                        <button
-                          onClick={(e) => handleModifyStudentScore(st.name, 1, e)}
-                          className="w-8 h-7 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
-                          title="Cộng 1 điểm"
-                        >
-                          <Plus className="w-4 h-4 stroke-[3]" />
-                        </button>
-                      </div>
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              const val = Number(directScoreInput);
+                              if (!isNaN(val)) handleSetExactStudentScore(st.name, val);
+                            }}
+                            className="flex items-center gap-1"
+                          >
+                            <input
+                              type="number"
+                              min={0}
+                              max={999}
+                              value={directScoreInput}
+                              onChange={(e) => setDirectScoreInput(e.target.value)}
+                              className={`w-14 px-2 py-0.5 rounded-lg border text-center font-black outline-none ${
+                                isLightMode
+                                  ? 'bg-white border-slate-300 text-slate-900'
+                                  : 'bg-slate-950 border-slate-700 text-white'
+                              }`}
+                              title="Gõ trực tiếp tổng điểm mới"
+                            />
+                            <button
+                              type="submit"
+                              className="px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold cursor-pointer"
+                              title="Lưu số điểm vừa nhập"
+                            >
+                              Lưu
+                            </button>
+                          </form>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
