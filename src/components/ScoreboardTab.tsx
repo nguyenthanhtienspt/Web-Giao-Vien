@@ -16,17 +16,16 @@ import {
   Crown,
   Users2,
   GraduationCap,
-  Calendar,
   ChevronLeft,
   ChevronRight,
   Search,
-  ArrowUpDown,
   FileSpreadsheet,
+  School,
 } from 'lucide-react';
-import { GroupScore, ClassMonthlyStudentScores } from '../types';
+import { GroupScore, ClassMonthlyStudentScores, SavedClass } from '../types';
 import { soundManager } from '../services/sound';
 import {
-  getCurrentMonthKey,
+  classroomStateStorage,
   shiftMonthKey,
   formatMonthLabel,
 } from '../services/classroomStateStorage';
@@ -35,6 +34,7 @@ interface ScoreboardTabProps {
   isLightMode: boolean;
   isActive?: boolean;
   activeClassName?: string;
+  savedClasses?: SavedClass[];
   students: string[];
   absentStudents?: string[];
   groups: GroupScore[];
@@ -65,6 +65,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
   isLightMode,
   isActive = true,
   activeClassName,
+  savedClasses = [],
   students,
   absentStudents = [],
   groups,
@@ -81,13 +82,11 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
   onUndoStudentScore,
 }) => {
   const [scoreMode, setScoreMode] = useState<'students' | 'groups'>('students');
+  const [rankingScope, setRankingScope] = useState<'inClass' | 'allClasses'>('inClass');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
   const [showCeremony, setShowCeremony] = useState<boolean>(false);
-
-  // Student mode UI states
   const [studentQuery, setStudentQuery] = useState<string>('');
-  const [studentSort, setStudentSort] = useState<'stt' | 'score'>('stt');
 
   const [celebrationBanner, setCelebrationBanner] = useState<{
     groupName: string;
@@ -105,7 +104,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
     };
   }, []);
 
-  // Ctrl+Z shortcut for Undo depending on active sub-mode
+  // Ctrl+Z Undo shortcut
   useEffect(() => {
     if (!isActive) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -128,7 +127,6 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
 
   const launchGrandFireworks = (originX: number = 0.5) => {
     soundManager.playFireworksSound();
-
     confetti({
       particleCount: 80,
       angle: 90,
@@ -140,7 +138,6 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
       scalar: 1.2,
       ticks: 200,
     });
-
     setTimeout(() => {
       confetti({
         particleCount: 65,
@@ -149,8 +146,6 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
         origin: { x: Math.max(0.1, originX - 0.25), y: 0.55 },
         colors: FIREWORK_COLORS,
         startVelocity: 40,
-        gravity: 0.85,
-        scalar: 1.1,
       });
       confetti({
         particleCount: 65,
@@ -159,24 +154,8 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
         origin: { x: Math.min(0.9, originX + 0.25), y: 0.55 },
         colors: FIREWORK_COLORS,
         startVelocity: 40,
-        gravity: 0.85,
-        scalar: 1.1,
       });
     }, 250);
-
-    setTimeout(() => {
-      confetti({
-        particleCount: 90,
-        spread: 120,
-        origin: { x: originX, y: 0.35 },
-        colors: ['#FFD700', '#FFFFFF', '#00E5FF', '#FF3366', '#76FF03'],
-        shapes: ['circle', 'star'],
-        startVelocity: 35,
-        gravity: 0.7,
-        scalar: 1.3,
-        ticks: 250,
-      });
-    }, 550);
   };
 
   const launchContinuousCelebration = () => {
@@ -184,15 +163,6 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
     launchGrandFireworks(0.5);
     setTimeout(() => launchGrandFireworks(0.25), 400);
     setTimeout(() => launchGrandFireworks(0.75), 800);
-    setTimeout(() => {
-      confetti({
-        particleCount: 120,
-        spread: 160,
-        origin: { x: 0.5, y: 0.4 },
-        colors: FIREWORK_COLORS,
-        startVelocity: 50,
-      });
-    }, 1200);
   };
 
   const triggerCelebrationBanner = (groupName: string, score: number, message: string) => {
@@ -202,7 +172,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
     setCelebrationBanner({ groupName, score, message });
     bannerTimeoutRef.current = window.setTimeout(() => {
       setCelebrationBanner(null);
-    }, 4000);
+    }, 3500);
   };
 
   // --- GROUP SCORE HANDLERS ---
@@ -220,42 +190,32 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
     onUpdateGroups(next, true);
 
     if (delta > 0 && newScore > oldScore) {
-      const milestoneIntervals = [10, 15, 20, 25, 30, 40, 50];
-      const hitMilestone = milestoneIntervals.find((m) => oldScore < m && newScore >= m);
+      const hitMilestone = [10, 15, 20, 25, 30, 40, 50].find((m) => oldScore < m && newScore >= m);
       if (hitMilestone) {
         launchGrandFireworks(0.5);
-        triggerCelebrationBanner(
-          targetGroup.name,
-          newScore,
-          `XUẤT SẮC CHẠM MỐC ${hitMilestone} ĐIỂM!`
-        );
+        triggerCelebrationBanner(targetGroup.name, newScore, `CHẠM MỐC ${hitMilestone} ĐIỂM!`);
       }
     }
   };
 
   const handleCongratulateEntity = (name: string, score: number, e?: React.MouseEvent) => {
     let xRatio = 0.5;
-    if (e) {
-      xRatio = Math.max(0.15, Math.min(0.85, e.clientX / window.innerWidth));
-    }
+    if (e) xRatio = Math.max(0.15, Math.min(0.85, e.clientX / window.innerWidth));
     launchGrandFireworks(xRatio);
     triggerCelebrationBanner(
       name,
       score,
-      score > 0
-        ? `ĐẠT ${score} ĐIỂM · CHÚC MỪNG HOÀN THÀNH XUẤT SẮC!`
-        : `CHÚC MỪNG PHẦN THỂ HIỆN TUYỆT VỜI!`
+      score > 0 ? `ĐẠT ${score} ĐIỂM · XUẤT SẮC!` : `CHÚC MỪNG PHẦN THỂ HIỆN TỐT!`
     );
   };
 
   const handleResetGroupScores = () => {
-    if (window.confirm(`Thầy/Cô có chắc chắn muốn đặt lại điểm của tất cả ${groups.length} nhóm về 0?`)) {
+    if (window.confirm(`Đặt lại điểm của tất cả ${groups.length} nhóm về 0?`)) {
       onUpdateGroups(
         groups.map((g) => ({ ...g, score: 0 })),
         true
       );
       setShowCeremony(false);
-      setCelebrationBanner(null);
     }
   };
 
@@ -274,9 +234,8 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
     setEditingId(null);
   };
 
-  // --- STUDENT MONTHLY SCORE HANDLERS ---
+  // --- MINIMALIST STUDENT MONTHLY SCORE HANDLERS ---
   const currentMonthMap = monthlyScores[selectedMonth] || {};
-  const currentRealMonth = getCurrentMonthKey();
 
   const handleModifyStudentScore = (studentName: string, delta: number, e?: React.MouseEvent) => {
     const oldScore = currentMonthMap[studentName] || 0;
@@ -287,35 +246,25 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
 
     onUpdateStudentScore(studentName, delta, selectedMonth);
 
-    if (delta > 0 && newScore > oldScore) {
-      const milestones = [5, 10, 15, 20, 25, 30, 40, 50];
-      const hit = milestones.find((m) => oldScore < m && newScore >= m);
-      if (hit) {
-        let xRatio = 0.5;
-        if (e) xRatio = Math.max(0.15, Math.min(0.85, e.clientX / window.innerWidth));
-        launchGrandFireworks(xRatio);
-        triggerCelebrationBanner(
-          studentName,
-          newScore,
-          `CHẠM MỐC ${hit} ĐIỂM TÍCH LŨY ${formatMonthLabel(selectedMonth).toUpperCase()}!`
-        );
-      }
+    if (delta > 0 && newScore > oldScore && [5, 10, 15, 20, 30].includes(newScore)) {
+      let xRatio = 0.5;
+      if (e) xRatio = Math.max(0.15, Math.min(0.85, e.clientX / window.innerWidth));
+      launchGrandFireworks(xRatio);
+      triggerCelebrationBanner(studentName, newScore, `ĐẠT ${newScore} ĐIỂM ${formatMonthLabel(selectedMonth).toUpperCase()}!`);
     }
   };
 
   const handleResetCurrentMonth = () => {
     if (
       window.confirm(
-        `Thầy/Cô có chắc chắn muốn đặt lại toàn bộ điểm cá nhân ${formatMonthLabel(selectedMonth)} của ${activeClassName || 'lớp này'} về 0? (Điểm các tháng khác vẫn được giữ nguyên)`
+        `Đặt lại điểm ${formatMonthLabel(selectedMonth)} của ${activeClassName || 'lớp này'} về 0? (Điểm các tháng khác giữ nguyên)`
       )
     ) {
       onResetMonthScores(selectedMonth);
       setShowCeremony(false);
-      setCelebrationBanner(null);
     }
   };
 
-  // Compute student rows & rankings for selectedMonth
   const studentRows = students.map((name, idx) => ({
     stt: idx + 1,
     name,
@@ -325,18 +274,15 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
 
   const maxStudentScore =
     studentRows.length > 0 ? Math.max(...studentRows.map((s) => s.score)) : 0;
-  const studentsSortedByScore = [...studentRows].sort(
-    (a, b) => b.score - a.score || a.stt - b.stt
-  );
+  const rankedStudents = [...studentRows]
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score || a.stt - b.stt);
   const topStudents = studentRows.filter(
     (s) => s.score === maxStudentScore && maxStudentScore > 0
   );
-  const totalMonthPoints = studentRows.reduce((sum, s) => sum + s.score, 0);
-  const scoredStudentsCount = studentRows.filter((s) => s.score > 0).length;
 
-  // Assign dense rank by unique positive score
   const uniquePositiveScores = Array.from(
-    new Set(studentRows.map((s) => s.score).filter((sc) => sc > 0))
+    new Set(rankedStudents.map((s) => s.score))
   ).sort((a, b) => b - a);
 
   const getStudentRank = (score: number): number | null => {
@@ -344,10 +290,27 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
     return uniquePositiveScores.indexOf(score) + 1;
   };
 
+  // Cross-class leaderboard for the selected month ("Xếp hạng giữa các lớp")
+  const classLeaderboard = savedClasses
+    .map((cls) => {
+      const mScores =
+        cls.name === activeClassName
+          ? currentMonthMap
+          : classroomStateStorage.getMonthlyScoresForClass(cls.id)[selectedMonth] || {};
+      const totalPts = Object.values(mScores).reduce((sum, v) => sum + (Number(v) || 0), 0);
+      const activeCount = Object.values(mScores).filter((v) => (Number(v) || 0) > 0).length;
+      return {
+        id: cls.id,
+        name: cls.name,
+        studentCount: cls.students.length || cls.studentCount,
+        totalPts,
+        activeCount,
+      };
+    })
+    .sort((a, b) => b.totalPts - a.totalPts || a.name.localeCompare(b.name, 'vi', { numeric: true }));
+
   const normalizedQuery = studentQuery.trim().toLowerCase();
-  const visibleStudents = (
-    studentSort === 'score' ? studentsSortedByScore : studentRows
-  ).filter((item) => {
+  const visibleStudents = studentRows.filter((item) => {
     if (!normalizedQuery) return true;
     return (
       item.name.toLowerCase().includes(normalizedQuery) ||
@@ -355,37 +318,23 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
     );
   });
 
-  // Recorded months list for quick month pills
-  const recordedMonths = Array.from(
-    new Set([
-      currentRealMonth,
-      selectedMonth,
-      ...Object.keys(monthlyScores).filter((mKey) =>
-        Object.values(monthlyScores[mKey] || {}).some((v) => v > 0)
-      ),
-    ])
-  ).sort();
-
-  // Export Monthly & All-Months Summary Excel (.xlsx)
   const handleExportMonthlyExcel = () => {
     const wb = XLSX.utils.book_new();
     const classLabel = activeClassName || 'Lop';
 
-    // Sheet 1: Current Selected Month
     const monthSheetRows: (string | number)[][] = [
-      [`BẢNG ĐIỂM TÍCH LŨY CÁ NHÂN - ${classLabel.toUpperCase()} (${formatMonthLabel(selectedMonth)})`],
+      [`BẢNG ĐIỂM CÁ NHÂN - ${classLabel.toUpperCase()} (${formatMonthLabel(selectedMonth)})`],
       [],
-      ['STT', 'Họ và tên học sinh', `Điểm ${formatMonthLabel(selectedMonth)}`, 'Xếp hạng tháng'],
+      ['STT', 'Họ và tên học sinh', `Điểm ${formatMonthLabel(selectedMonth)}`, 'Xếp hạng lớp'],
       ...studentRows.map((s) => {
         const r = getStudentRank(s.score);
         return [s.stt, s.name, s.score, r ? `Hạng ${r}` : '-'];
       }),
     ];
     const wsMonth = XLSX.utils.aoa_to_sheet(monthSheetRows);
-    wsMonth['!cols'] = [{ wch: 8 }, { wch: 28 }, { wch: 22 }, { wch: 16 }];
+    wsMonth['!cols'] = [{ wch: 8 }, { wch: 28 }, { wch: 20 }, { wch: 15 }];
     XLSX.utils.book_append_sheet(wb, wsMonth, `Thang_${selectedMonth}`);
 
-    // Sheet 2: All recorded months summary across the school year
     const allMonthsSorted = Array.from(
       new Set([selectedMonth, ...Object.keys(monthlyScores)])
     ).sort();
@@ -393,7 +342,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
       'STT',
       'Họ và tên học sinh',
       ...allMonthsSorted.map((m) => formatMonthLabel(m)),
-      'Tổng điểm tích lũy',
+      'Tổng cộng',
     ];
     const summaryData = students.map((name, idx) => {
       const perMonth = allMonthsSorted.map((m) => (monthlyScores[m] || {})[name] || 0);
@@ -404,844 +353,708 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
     wsSummary['!cols'] = [
       { wch: 8 },
       { wch: 28 },
-      ...allMonthsSorted.map(() => ({ wch: 18 })),
-      { wch: 20 },
+      ...allMonthsSorted.map(() => ({ wch: 16 })),
+      { wch: 14 },
     ];
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'Tong_Hop_Cac_Thang');
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Tong_Hop_Nam');
 
-    const safeClass = classLabel.replace(/\s+/g, '_');
-    XLSX.writeFile(wb, `Bang_Diem_Ca_Nhan_${safeClass}_${selectedMonth}.xlsx`);
+    XLSX.writeFile(wb, `Bang_Diem_${classLabel.replace(/\s+/g, '_')}_${selectedMonth}.xlsx`);
   };
 
   // Group stats
   const maxGroupScore = groups.length > 0 ? Math.max(...groups.map((g) => g.score)) : 0;
   const sortedGroupsByScore = [...groups].sort((a, b) => b.score - a.score);
   const topGroups = groups.filter((g) => g.score === maxGroupScore && maxGroupScore > 0);
-
-  const handleOpenCeremony = () => {
-    setShowCeremony(true);
-    launchContinuousCelebration();
-  };
-
-  const ceremonyHasWinner =
-    scoreMode === 'students' ? maxStudentScore > 0 : maxGroupScore > 0;
+  const ceremonyHasWinner = scoreMode === 'students' ? maxStudentScore > 0 : maxGroupScore > 0;
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col gap-5 relative">
-      {/* Floating High-Score / Congratulatory Banner */}
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col gap-4 relative">
+      {/* Floating Celebration Banner */}
       {celebrationBanner && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-2xl animate-in slide-in-from-top-6 duration-300 pointer-events-none">
-          <div className="bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 p-1 rounded-3xl shadow-2xl shadow-indigo-500/40">
-            <div
-              className={`px-6 py-4 rounded-[22px] flex items-center justify-between gap-4 text-white ${
-                isLightMode ? 'bg-slate-900' : 'bg-slate-950'
-              }`}
-            >
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-xl animate-in slide-in-from-top-6 duration-300 pointer-events-none">
+          <div className="bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 p-1 rounded-2xl shadow-2xl">
+            <div className="px-5 py-3 rounded-[14px] bg-slate-950 flex items-center justify-between gap-3 text-white">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-lg animate-bounce">
-                  <PartyPopper className="w-7 h-7" />
-                </div>
+                <PartyPopper className="w-6 h-6 text-amber-400 shrink-0 animate-bounce" />
                 <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xl sm:text-2xl font-black font-display text-amber-400 uppercase tracking-wide">
-                      {celebrationBanner.groupName}
-                    </span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 text-xs font-bold font-mono">
-                      {celebrationBanner.score} ĐIỂM
-                    </span>
-                  </div>
-                  <p className="text-sm sm:text-base font-bold text-slate-200 mt-0.5">
-                    {celebrationBanner.message} 🎆
-                  </p>
+                  <span className="font-black font-display text-amber-400 uppercase">
+                    {celebrationBanner.groupName} · {celebrationBanner.score}đ
+                  </span>
+                  <p className="text-xs font-bold text-slate-200">{celebrationBanner.message}</p>
                 </div>
               </div>
-              <div className="hidden sm:flex items-center gap-1 text-amber-300 font-black text-xl animate-pulse">
-                <span>✨ 🎆 ✨</span>
-              </div>
+              <span>🎆</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Mode Switcher Bar: Individual Students (Monthly) vs Groups */}
+      {/* Compact Single Top Toolbar */}
       <div
-        className={`p-2 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${
-          isLightMode ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/90 border-slate-800'
+        className={`px-3.5 py-2.5 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${
+          isLightMode ? 'bg-white border-slate-200 shadow-xs' : 'bg-slate-900/90 border-slate-800'
         }`}
       >
-        <div className="flex items-center gap-2 p-1 rounded-xl bg-slate-500/10 flex-1 sm:flex-initial">
-          <button
-            onClick={() => setScoreMode('students')}
-            className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-display font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              scoreMode === 'students'
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md scale-[1.01]'
-                : isLightMode
-                  ? 'text-slate-600 hover:text-slate-900'
-                  : 'text-slate-300 hover:text-white'
+        {/* Left: Mode Toggle + Month Navigator */}
+        <div className="flex items-center flex-wrap gap-2">
+          <div
+            className={`flex items-center gap-1 p-1 rounded-xl ${
+              isLightMode ? 'bg-slate-100' : 'bg-slate-950 border border-slate-800'
             }`}
           >
-            <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span>ĐIỂM CÁ NHÂN HỌC SINH (THEO THÁNG)</span>
-          </button>
+            <button
+              onClick={() => setScoreMode('students')}
+              className={`px-3 py-1.5 rounded-lg font-display font-black text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer transition-all ${
+                scoreMode === 'students'
+                  ? 'bg-emerald-600 text-white shadow'
+                  : isLightMode
+                    ? 'text-slate-600 hover:text-slate-900'
+                    : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <GraduationCap className="w-4 h-4" />
+              <span>Học sinh</span>
+            </button>
+            <button
+              onClick={() => setScoreMode('groups')}
+              className={`px-3 py-1.5 rounded-lg font-display font-black text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer transition-all ${
+                scoreMode === 'groups'
+                  ? 'bg-indigo-600 text-white shadow'
+                  : isLightMode
+                    ? 'text-slate-600 hover:text-slate-900'
+                    : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Users2 className="w-4 h-4" />
+              <span>Nhóm ({groups.length})</span>
+            </button>
+          </div>
 
-          <button
-            onClick={() => setScoreMode('groups')}
-            className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-display font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              scoreMode === 'groups'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md scale-[1.01]'
-                : isLightMode
-                  ? 'text-slate-600 hover:text-slate-900'
-                  : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            <Users2 className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span>ĐIỂM NHÓM / TỔ ({groups.length} NHÓM)</span>
-          </button>
-        </div>
-
-        {/* Month Selector right on the switcher bar when in student mode */}
-        {scoreMode === 'students' && (
-          <div className="flex items-center flex-wrap gap-2">
+          {scoreMode === 'students' && (
             <div
-              className={`flex items-center gap-1 p-1 rounded-xl border ${
-                isLightMode ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-950 border-slate-700'
+              className={`flex items-center gap-1 px-1.5 py-1 rounded-xl border ${
+                isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
               }`}
             >
               <button
                 onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, -1))}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                  isLightMode ? 'hover:bg-emerald-100 text-emerald-800' : 'hover:bg-slate-800 text-slate-300'
-                }`}
-                title="Xem điểm tháng trước"
+                className="p-1 rounded hover:bg-slate-500/20 cursor-pointer"
+                title="Tháng trước"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-
-              <div className="flex items-center gap-1.5 px-2">
-                <Calendar className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span className="font-display font-black text-xs sm:text-sm text-emerald-500">
-                  {formatMonthLabel(selectedMonth)}
-                </span>
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={(e) => e.target.value && onSelectMonth(e.target.value)}
-                  aria-label="Chọn tháng lưu điểm"
-                  className={`text-xs font-bold rounded px-1.5 py-0.5 outline-none cursor-pointer border ${
-                    isLightMode
-                      ? 'bg-white border-emerald-200 text-slate-700'
-                      : 'bg-slate-800 border-slate-700 text-slate-200'
-                  }`}
-                />
-              </div>
-
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => e.target.value && onSelectMonth(e.target.value)}
+                aria-label="Chọn tháng"
+                className="bg-transparent text-xs sm:text-sm font-display font-black text-emerald-500 outline-none cursor-pointer px-1"
+              />
               <button
                 onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, 1))}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                  isLightMode ? 'hover:bg-emerald-100 text-emerald-800' : 'hover:bg-slate-800 text-slate-300'
-                }`}
-                title="Chuyển sang tháng tiếp theo"
+                className="p-1 rounded hover:bg-slate-500/20 cursor-pointer"
+                title="Tháng sau"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+          )}
+        </div>
 
-            {selectedMonth !== currentRealMonth && (
-              <button
-                onClick={() => onSelectMonth(currentRealMonth)}
-                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer"
-              >
-                Về tháng hiện tại
-              </button>
-            )}
+        {/* Right: Minimalist Actions */}
+        {scoreMode === 'students' ? (
+          <div className="flex items-center flex-wrap gap-2">
+            <div className="relative w-44 sm:w-52">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={studentQuery}
+                onChange={(e) => setStudentQuery(e.target.value)}
+                placeholder="Tìm tên / STT..."
+                className={`w-full pl-8 pr-2.5 py-1.5 rounded-xl border text-xs font-medium outline-none ${
+                  isLightMode
+                    ? 'bg-slate-50 border-slate-200 text-slate-900 focus:border-emerald-500'
+                    : 'bg-slate-950 border-slate-800 text-white focus:border-emerald-500'
+                }`}
+              />
+            </div>
+
+            <button
+              onClick={onUndoStudentScore}
+              disabled={!canUndoStudentScore}
+              className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition-all ${
+                canUndoStudentScore
+                  ? isLightMode
+                    ? 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700 cursor-pointer'
+                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200 cursor-pointer'
+                  : 'opacity-35 cursor-not-allowed border-transparent text-slate-500'
+              }`}
+              title="Hoàn tác (Ctrl+Z)"
+            >
+              <Undo2 className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={handleExportMonthlyExcel}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 cursor-pointer ${
+                isLightMode
+                  ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+                  : 'bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/30 text-emerald-300'
+              }`}
+              title="Xuất Excel tháng"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Excel</span>
+            </button>
+
+            <button
+              onClick={handleResetCurrentMonth}
+              className={`p-2 rounded-xl border text-xs cursor-pointer ${
+                isLightMode
+                  ? 'hover:bg-rose-50 border-slate-200 text-rose-600'
+                  : 'hover:bg-rose-950/60 border-slate-800 text-rose-400'
+              }`}
+              title="Đặt lại điểm tháng này về 0"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          /* Group Mode Toolbar Controls */
+          <div className="flex items-center flex-wrap gap-2">
+            <div className="flex items-center gap-1 text-xs mr-1">
+              {[4, 6, 8, 10].map((cnt) => (
+                <button
+                  key={cnt}
+                  onClick={() => onChangeGroupCount(cnt)}
+                  className={`px-2 py-1 rounded-lg font-black cursor-pointer ${
+                    groups.length === cnt
+                      ? 'bg-indigo-600 text-white'
+                      : isLightMode
+                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  {cnt}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={onUndoGroups}
+              disabled={!canUndoGroups}
+              className={`p-2 rounded-xl border ${
+                canUndoGroups ? 'cursor-pointer border-slate-700' : 'opacity-35 cursor-not-allowed border-transparent'
+              }`}
+              title="Hoàn tác (Ctrl+Z)"
+            >
+              <Undo2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleResetGroupScores}
+              className="p-2 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+              title="Đặt lại điểm nhóm về 0"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                setShowCeremony(true);
+                launchContinuousCelebration();
+              }}
+              disabled={!ceremonyHasWinner}
+              className={`px-3.5 py-1.5 rounded-xl font-black text-xs flex items-center gap-1.5 ${
+                ceremonyHasWinner
+                  ? 'bg-amber-400 text-slate-950 cursor-pointer shadow'
+                  : 'opacity-40 cursor-not-allowed bg-slate-800 text-slate-500'
+              }`}
+            >
+              <Award className="w-4 h-4" />
+              <span>Vinh danh</span>
+            </button>
           </div>
         )}
       </div>
 
       {/* ===================================================================== */}
-      {/* MODE 1: INDIVIDUAL STUDENT MONTHLY SCOREBOARD                         */}
+      {/* MINIMALIST STUDENT SCOREBOARD + CLASS LEADERBOARD                     */}
       {/* ===================================================================== */}
       {scoreMode === 'students' ? (
-        <>
-          {/* Student Monthly Control & Summary Deck */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          {/* LEFT / SIDEBAR: CLASS LEADERBOARD (BẢNG XẾP HẠNG THEO LỚP) */}
           <div
-            className={`p-4 sm:p-5 rounded-3xl border flex flex-col gap-4 ${
-              isLightMode ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/90 border-slate-800'
+            className={`lg:col-span-4 rounded-2xl border p-4 flex flex-col gap-3 lg:sticky lg:top-4 ${
+              isLightMode ? 'bg-white border-slate-200 shadow-xs' : 'bg-slate-900/90 border-slate-800'
             }`}
           >
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
-                  <GraduationCap className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg sm:text-xl font-black font-display tracking-tight flex items-center gap-2 flex-wrap">
-                    <span>
-                      BẢNG ĐIỂM HỌC SINH · {activeClassName || 'LỚP HIỆN TẠI'} ·{' '}
-                      <span className="text-emerald-500">{formatMonthLabel(selectedMonth)}</span>
-                    </span>
-                  </h3>
-                  <div className="flex items-center flex-wrap gap-3 text-xs font-bold mt-1">
-                    <span className={isLightMode ? 'text-slate-600' : 'text-slate-400'}>
-                      Đã có điểm:{' '}
-                      <strong className="text-emerald-500">
-                        {scoredStudentsCount}/{students.length} HS
-                      </strong>
-                    </span>
-                    <span className="opacity-40">•</span>
-                    <span className={isLightMode ? 'text-slate-600' : 'text-slate-400'}>
-                      Tổng điểm phát ra tháng này:{' '}
-                      <strong className="text-indigo-500">{totalMonthPoints} điểm</strong>
-                    </span>
-                    {topStudents.length > 0 && (
-                      <>
-                        <span className="opacity-40">•</span>
-                        <span className="text-amber-500 flex items-center gap-1">
-                          <Crown className="w-3.5 h-3.5 fill-amber-400" />
-                          <span>
-                            Dẫn đầu: {topStudents.slice(0, 2).map((s) => s.name).join(', ')} (
-                            {maxStudentScore}đ)
-                          </span>
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-amber-500 shrink-0" />
+                <h3 className="font-display font-black text-sm sm:text-base uppercase tracking-tight">
+                  BẢNG XẾP HẠNG · T.{selectedMonth.split('-')[1]}
+                </h3>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center flex-wrap gap-2">
+              {rankingScope === 'inClass' && maxStudentScore > 0 && (
                 <button
-                  onClick={onUndoStudentScore}
-                  disabled={!canUndoStudentScore}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
-                    canUndoStudentScore
-                      ? isLightMode
-                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300 cursor-pointer'
-                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 cursor-pointer'
-                      : 'opacity-40 cursor-not-allowed border-slate-700/40 text-slate-500'
-                  }`}
-                  title="Hoàn tác cộng/trừ điểm cá nhân vừa rồi (Ctrl+Z)"
+                  onClick={() => {
+                    setShowCeremony(true);
+                    launchContinuousCelebration();
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] flex items-center gap-1 cursor-pointer"
                 >
-                  <Undo2 className="w-4 h-4" />
-                  <span>Hoàn tác</span>
+                  <Sparkles className="w-3 h-3 fill-current" />
+                  <span>Vinh danh</span>
                 </button>
-
-                <button
-                  onClick={handleExportMonthlyExcel}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow cursor-pointer active:scale-95 transition-all"
-                  title="Xuất file Excel điểm tháng này kèm Sheet tổng hợp tất cả các tháng"
-                >
-                  <FileSpreadsheet className="w-4 h-4" />
-                  <span>Xuất Excel tháng</span>
-                </button>
-
-                <button
-                  onClick={handleResetCurrentMonth}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-colors cursor-pointer ${
-                    isLightMode
-                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
-                      : 'bg-rose-950/60 hover:bg-rose-900 text-rose-300 border-rose-800'
-                  }`}
-                  title="Đặt lại điểm của riêng tháng đang chọn về 0"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Đặt lại tháng</span>
-                </button>
-
-                <button
-                  onClick={handleOpenCeremony}
-                  disabled={!ceremonyHasWinner}
-                  className={`px-4 py-2 rounded-2xl font-black font-display text-xs sm:text-sm flex items-center gap-1.5 shadow-lg transition-transform active:scale-95 ${
-                    ceremonyHasWinner
-                      ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 shadow-amber-500/30 cursor-pointer'
-                      : 'opacity-50 cursor-not-allowed bg-slate-800 text-slate-500'
-                  }`}
-                >
-                  <Award className="w-4 h-4 fill-current" />
-                  <span>VINH DANH THÁNG 🥇</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Search, Sort & Recorded Month Pills */}
-            <div
-              className={`pt-3 border-t flex flex-wrap items-center justify-between gap-3 ${
-                isLightMode ? 'border-slate-200' : 'border-slate-800'
-              }`}
-            >
-              <div className="flex items-center flex-wrap gap-2 flex-1 min-w-[240px]">
-                <div className="relative flex-1 max-w-xs">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={studentQuery}
-                    onChange={(e) => setStudentQuery(e.target.value)}
-                    placeholder="Tìm nhanh tên hoặc số thứ tự..."
-                    className={`w-full pl-9 pr-3 py-1.5 rounded-xl border text-xs sm:text-sm font-medium outline-none ${
-                      isLightMode
-                        ? 'bg-slate-50 border-slate-300 text-slate-900 focus:border-emerald-500'
-                        : 'bg-slate-950 border-slate-700 text-white focus:border-emerald-400'
-                    }`}
-                  />
-                </div>
-
-                <button
-                  onClick={() => setStudentSort(studentSort === 'stt' ? 'score' : 'stt')}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
-                    studentSort === 'score'
-                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
-                      : isLightMode
-                        ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700'
-                        : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
-                  }`}
-                >
-                  <ArrowUpDown className="w-3.5 h-3.5" />
-                  <span>
-                    {studentSort === 'score' ? 'Đang xếp: Điểm cao → thấp' : 'Đang xếp: Số thứ tự (A–Z)'}
-                  </span>
-                </button>
-              </div>
-
-              {/* Quick pills for months that have recorded data */}
-              {recordedMonths.length > 1 && (
-                <div className="flex items-center flex-wrap gap-1.5 text-xs">
-                  <span className="text-slate-400 font-bold">Tháng đã lưu:</span>
-                  {recordedMonths.map((mKey) => (
-                    <button
-                      key={mKey}
-                      onClick={() => onSelectMonth(mKey)}
-                      className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer transition-all ${
-                        mKey === selectedMonth
-                          ? 'bg-emerald-600 text-white shadow'
-                          : isLightMode
-                            ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                      }`}
-                    >
-                      T.{mKey.split('-')[1]}/{mKey.slice(2, 4)}
-                    </button>
-                  ))}
-                </div>
               )}
             </div>
-          </div>
 
-          {/* Student Score Cards Grid */}
-          {students.length === 0 ? (
+            {/* Scope Toggle: Students in Active Class vs Across All Classes */}
             <div
-              className={`p-10 rounded-3xl border text-center ${
-                isLightMode ? 'bg-white border-slate-200 text-slate-600' : 'bg-slate-900 border-slate-800 text-slate-400'
+              className={`grid grid-cols-2 gap-1 p-1 rounded-xl text-xs font-bold ${
+                isLightMode ? 'bg-slate-100' : 'bg-slate-950 border border-slate-800'
               }`}
             >
-              Lớp này chưa có danh sách tên học sinh. Thầy/Cô hãy mở mục <strong>Quản lý lớp</strong> trên thanh tiêu đề để nhập danh sách tên nhé!
+              <button
+                onClick={() => setRankingScope('inClass')}
+                className={`py-1.5 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                  rankingScope === 'inClass'
+                    ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                    : isLightMode
+                      ? 'text-slate-600 hover:text-slate-900'
+                      : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Crown className="w-3.5 h-3.5" />
+                <span className="truncate">{activeClassName || 'Trong lớp'}</span>
+              </button>
+              <button
+                onClick={() => setRankingScope('allClasses')}
+                className={`py-1.5 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                  rankingScope === 'allClasses'
+                    ? 'bg-indigo-600 text-white font-black shadow-xs'
+                    : isLightMode
+                      ? 'text-slate-600 hover:text-slate-900'
+                      : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <School className="w-3.5 h-3.5" />
+                <span>Xếp hạng các lớp</span>
+              </button>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
-              {visibleStudents.map((st) => {
-                const rank = getStudentRank(st.score);
-                const isTop1 = rank === 1;
 
-                return (
-                  <div
-                    key={`${st.stt}_${st.name}`}
-                    className={`rounded-2xl border-2 p-3.5 flex flex-col justify-between gap-3 transition-all ${
-                      isTop1
-                        ? isLightMode
-                          ? 'bg-amber-50/70 border-amber-400 ring-2 ring-amber-300/60 shadow-lg'
-                          : 'bg-gradient-to-b from-amber-500/15 via-slate-900 to-slate-900 border-amber-400 ring-2 ring-amber-400/30 shadow-xl'
-                        : isLightMode
-                          ? 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
-                          : 'bg-slate-900/90 border-slate-800 hover:border-slate-700 shadow-md'
-                    } ${st.isAbsent ? 'opacity-60' : ''}`}
-                  >
-                    {/* Top Row: STT + Name + Rank */}
-                    <div className="flex items-start justify-between gap-2">
+            {/* Leaderboard Body */}
+            {rankingScope === 'inClass' ? (
+              rankedStudents.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400">
+                  Chưa có điểm trong {formatMonthLabel(selectedMonth)}.<br />
+                  Bấm nút <strong>+</strong> bên cạnh tên học sinh để ghi điểm!
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1.5 max-h-[62vh] overflow-y-auto pr-1">
+                  {rankedStudents.map((st) => {
+                    const rank = getStudentRank(st.score) || 1;
+                    return (
+                      <div
+                        key={st.name}
+                        className={`px-3 py-2 rounded-xl flex items-center justify-between gap-2 text-xs sm:text-sm ${
+                          rank === 1
+                            ? isLightMode
+                              ? 'bg-amber-50 border border-amber-300 text-amber-950 font-black'
+                              : 'bg-amber-500/15 border border-amber-500/40 text-amber-200 font-black'
+                            : rank <= 3
+                              ? isLightMode
+                                ? 'bg-slate-50 border border-slate-200 font-bold'
+                                : 'bg-slate-800/80 border border-slate-700 font-bold'
+                              : isLightMode
+                                ? 'hover:bg-slate-50 text-slate-700 font-semibold'
+                                : 'hover:bg-slate-800/40 text-slate-300 font-semibold'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-6 text-center shrink-0 font-display font-black">
+                            {rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`}
+                          </span>
+                          <span className="truncate">{st.name}</span>
+                        </div>
+                        <span
+                          className={`font-display font-black tabular-nums shrink-0 ${
+                            rank === 1 ? 'text-amber-500 text-base' : 'text-emerald-500'
+                          }`}
+                        >
+                          {st.score}đ
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            ) : (
+              /* Ranking Across Classes */
+              <div className="flex flex-col gap-1.5 max-h-[62vh] overflow-y-auto pr-1">
+                {classLeaderboard.map((cls, idx) => {
+                  const isCurrent = cls.name === activeClassName;
+                  return (
+                    <div
+                      key={cls.id}
+                      className={`px-3 py-2 rounded-xl flex items-center justify-between gap-2 text-xs sm:text-sm ${
+                        isCurrent
+                          ? isLightMode
+                            ? 'bg-indigo-50 border border-indigo-300 text-indigo-950 font-black'
+                            : 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 font-black'
+                          : isLightMode
+                            ? 'bg-slate-50/70 text-slate-700 font-semibold'
+                            : 'bg-slate-800/40 text-slate-300 font-semibold'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-6 text-center shrink-0 font-display font-black">
+                          {idx === 0 && cls.totalPts > 0
+                            ? '🥇'
+                            : idx === 1 && cls.totalPts > 0
+                              ? '🥈'
+                              : idx === 2 && cls.totalPts > 0
+                                ? '🥉'
+                                : `#${idx + 1}`}
+                        </span>
+                        <span className="truncate">{cls.name}</span>
+                        <span className="text-[11px] text-slate-400 font-normal">
+                          ({cls.activeCount}/{cls.studentCount} HS)
+                        </span>
+                      </div>
+                      <span className="font-display font-black tabular-nums text-emerald-500 shrink-0">
+                        {cls.totalPts}đ
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT: MINIMALIST STUDENT LIST (COMPACT 1-LINE ROWS) */}
+          <div className="lg:col-span-8">
+            {students.length === 0 ? (
+              <div
+                className={`p-8 rounded-2xl border text-center text-sm ${
+                  isLightMode ? 'bg-white border-slate-200 text-slate-600' : 'bg-slate-900 border-slate-800 text-slate-400'
+                }`}
+              >
+                Chưa có danh sách học sinh cho lớp này.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {visibleStudents.map((st) => {
+                  const rank = getStudentRank(st.score);
+                  return (
+                    <div
+                      key={`${st.stt}_${st.name}`}
+                      className={`px-3 py-2 rounded-xl border flex items-center justify-between gap-2 transition-colors ${
+                        rank === 1
+                          ? isLightMode
+                            ? 'bg-amber-50/60 border-amber-300'
+                            : 'bg-amber-950/20 border-amber-500/50'
+                          : isLightMode
+                            ? 'bg-white border-slate-200 hover:border-slate-300'
+                            : 'bg-slate-900/85 border-slate-800 hover:border-slate-700'
+                      } ${st.isAbsent ? 'opacity-45' : ''}`}
+                    >
                       <div className="flex items-center gap-2 min-w-0">
                         <span
-                          className={`w-7 h-7 rounded-lg text-xs font-black flex items-center justify-center shrink-0 tabular-nums ${
-                            isTop1
-                              ? 'bg-amber-400 text-slate-950'
-                              : isLightMode
-                                ? 'bg-indigo-100 text-indigo-800'
-                                : 'bg-slate-800 text-indigo-300 border border-slate-700'
+                          className={`w-6 h-6 rounded-md text-[11px] font-black flex items-center justify-center shrink-0 tabular-nums ${
+                            isLightMode ? 'bg-slate-100 text-slate-600' : 'bg-slate-800 text-slate-400'
                           }`}
                         >
                           {st.stt}
                         </span>
-                        <div className="min-w-0">
-                          <h4 className="font-display font-black text-sm sm:text-base leading-snug truncate">
-                            {st.name}
-                          </h4>
-                          {st.isAbsent && (
-                            <span className="text-[10px] font-bold text-rose-500">Vắng hôm nay</span>
-                          )}
-                        </div>
+                        <span className="font-bold text-xs sm:text-sm truncate">
+                          {st.name}
+                        </span>
+                        {st.isAbsent && (
+                          <span className="text-[10px] text-rose-500 font-bold shrink-0">Vắng</span>
+                        )}
                       </div>
 
-                      {rank !== null && (
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[11px] font-black shrink-0 ${
-                            rank === 1
-                              ? 'bg-amber-400 text-amber-950 shadow'
-                              : rank === 2
-                                ? 'bg-slate-300 text-slate-900'
-                                : rank === 3
-                                  ? 'bg-orange-400/30 text-orange-400 border border-orange-400/40'
-                                  : isLightMode
-                                    ? 'bg-slate-100 text-slate-600'
-                                    : 'bg-slate-800 text-slate-400'
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={(e) => handleModifyStudentScore(st.name, -1, e)}
+                          disabled={st.score <= 0}
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-90 disabled:opacity-25 ${
+                            isLightMode
+                              ? 'bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600'
+                              : 'bg-slate-800 hover:bg-rose-950 text-slate-300 hover:text-rose-400'
                           }`}
+                          title="Trừ 1 điểm"
                         >
-                          {rank === 1 ? '🥇 #1' : rank === 2 ? '🥈 #2' : rank === 3 ? '🥉 #3' : `#${rank}`}
-                        </span>
-                      )}
-                    </div>
+                          <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </button>
 
-                    {/* Middle Score + Quick Controls */}
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      <div className="flex items-baseline gap-1">
                         <span
-                          className={`font-display font-black text-4xl sm:text-5xl tabular-nums leading-none ${
-                            isTop1
-                              ? 'text-amber-500'
-                              : st.score >= 5
-                                ? 'text-emerald-500'
-                                : st.score > 0
-                                  ? 'text-indigo-500'
-                                  : isLightMode
-                                    ? 'text-slate-400'
-                                    : 'text-slate-600'
+                          className={`w-8 text-center font-display font-black text-base sm:text-lg tabular-nums ${
+                            st.score > 0
+                              ? rank === 1
+                                ? 'text-amber-500'
+                                : 'text-emerald-500'
+                              : isLightMode
+                                ? 'text-slate-300'
+                                : 'text-slate-600'
                           }`}
                         >
                           {st.score}
                         </span>
-                        <span className="text-[11px] font-bold text-slate-400">điểm</span>
-                      </div>
-
-                      {/* Score Action Buttons */}
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={(e) => handleModifyStudentScore(st.name, -1, e)}
-                          disabled={st.score <= 0}
-                          className="w-9 h-9 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-30 text-white font-black flex items-center justify-center shadow-xs active:scale-95 transition-all cursor-pointer"
-                          title="Trừ 1 điểm"
-                        >
-                          <Minus className="w-4 h-4 stroke-[3]" />
-                        </button>
 
                         <button
                           onClick={(e) => handleModifyStudentScore(st.name, 1, e)}
-                          className="px-3 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-display font-black text-sm flex items-center gap-0.5 shadow-sm shadow-emerald-600/30 active:scale-95 transition-all cursor-pointer"
+                          className="w-8 h-7 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
                           title="Cộng 1 điểm"
                         >
                           <Plus className="w-4 h-4 stroke-[3]" />
-                          <span>1</span>
-                        </button>
-
-                        <button
-                          onClick={(e) => handleModifyStudentScore(st.name, 2, e)}
-                          className={`px-2.5 h-9 rounded-xl font-black text-xs active:scale-95 transition-all cursor-pointer ${
-                            isLightMode
-                              ? 'bg-indigo-100 hover:bg-indigo-200 text-indigo-800'
-                              : 'bg-indigo-600/25 hover:bg-indigo-600/40 text-indigo-300'
-                          }`}
-                          title="Cộng 2 điểm"
-                        >
-                          +2
-                        </button>
-
-                        <button
-                          onClick={(e) => handleModifyStudentScore(st.name, 5, e)}
-                          className={`px-2.5 h-9 rounded-xl font-black text-xs active:scale-95 transition-all cursor-pointer ${
-                            isLightMode
-                              ? 'bg-amber-100 hover:bg-amber-200 text-amber-900'
-                              : 'bg-amber-500/20 hover:bg-amber-500/35 text-amber-300'
-                          }`}
-                          title="Thưởng nóng 5 điểm"
-                        >
-                          +5
                         </button>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
         /* ===================================================================== */
-        /* MODE 2: GROUP / TEAM SCOREBOARD                                       */
+        /* GROUP / TEAM SCOREBOARD                                               */
         /* ===================================================================== */
-        <>
-          <div
-            className={`p-4 sm:p-5 rounded-3xl border flex flex-wrap items-center justify-between gap-4 ${
-              isLightMode ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/90 border-slate-800'
-            }`}
-          >
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-500 flex items-center justify-center">
-                <Trophy className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg sm:text-xl font-black font-display tracking-tight flex items-center gap-2 flex-wrap">
-                  <span>
-                    BẢNG ĐIỂM THI ĐUA {groups.length} NHÓM
-                    {activeClassName ? ` · ${activeClassName}` : ''}
-                  </span>
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">
-                    ✓ Lưu riêng theo lớp
-                  </span>
-                  {maxGroupScore >= 10 && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-500 border border-amber-400/30 flex items-center gap-1">
-                      <Flame className="w-3.5 h-3.5 fill-amber-400" />
-                      Cao nhất: {maxGroupScore} điểm
-                    </span>
-                  )}
-                </h3>
-                <div className="flex items-center flex-wrap gap-1.5 mt-1.5 text-xs">
-                  <span className="text-slate-400 font-bold">Số tổ/nhóm:</span>
-                  {[4, 6, 8, 10].map((cnt) => (
-                    <button
-                      key={cnt}
-                      onClick={() => onChangeGroupCount(cnt)}
-                      className={`px-2 py-0.5 rounded-lg font-black cursor-pointer transition-colors ${
-                        groups.length === cnt
-                          ? 'bg-indigo-600 text-white'
-                          : isLightMode
-                            ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+        <div
+          className={`grid gap-4 sm:gap-5 ${
+            groups.length <= 4
+              ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+              : 'grid-cols-2 md:grid-cols-4'
+          }`}
+        >
+          {groups.map((group) => {
+            const isTopScorer = group.score === maxGroupScore && maxGroupScore > 0;
+            const rank = sortedGroupsByScore.findIndex((g) => g.id === group.id) + 1;
+            const isHighScorer = group.score >= 10;
+
+            return (
+              <div
+                key={group.id}
+                className={`rounded-3xl border-3 flex flex-col justify-between overflow-hidden transition-all duration-300 relative ${
+                  isTopScorer
+                    ? 'border-amber-400 ring-4 ring-amber-400/40 shadow-2xl scale-[1.02] bg-gradient-to-b from-amber-500/10 via-transparent to-transparent'
+                    : isLightMode
+                      ? 'bg-white border-slate-300 shadow-md hover:border-slate-400'
+                      : 'bg-slate-900/90 border-slate-800 shadow-xl hover:border-slate-700'
+                }`}
+              >
+                <div className={`px-4 py-3 text-white flex items-center justify-between ${group.badgeColor}`}>
+                  <div className="flex items-center gap-2 flex-1 mr-2 min-w-0">
+                    {editingId === group.id ? (
+                      <div className="flex items-center gap-1 w-full">
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && saveEditing()}
+                          autoFocus
+                          className="w-full bg-black/40 text-white px-2 py-0.5 rounded font-bold text-sm outline-none border border-white/40"
+                        />
+                        <button onClick={saveEditing} className="p-1 hover:bg-black/30 rounded cursor-pointer">
+                          <Check className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        className="flex items-center gap-1.5 group cursor-pointer min-w-0"
+                        onClick={() => startEditing(group)}
+                        title="Bấm để đổi tên nhóm/tổ"
+                      >
+                        <h4 className="font-black font-display text-base sm:text-lg uppercase tracking-wider truncate">
+                          {group.name}
+                        </h4>
+                        <Edit2 className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                      </div>
+                    )}
+                  </div>
+
+                  {maxGroupScore > 0 && (
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-black shrink-0 ${
+                        rank === 1 ? 'bg-amber-400 text-amber-950 shadow' : 'bg-black/30 text-white'
                       }`}
                     >
-                      {cnt}
-                    </button>
-                  ))}
+                      {rank === 1 ? '🥇 #1' : rank === 2 ? '🥈 #2' : rank === 3 ? '🥉 #3' : `#${rank}`}
+                    </span>
+                  )}
+                </div>
+
+                {group.leader !== undefined && (
                   <div
-                    className={`flex items-center border rounded-lg px-1 ${
-                      isLightMode ? 'border-slate-300' : 'border-slate-700'
+                    className={`px-3 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-b truncate ${
+                      isLightMode
+                        ? 'bg-amber-50 border-amber-200 text-amber-900'
+                        : 'bg-amber-950/30 border-slate-800 text-amber-300'
                     }`}
                   >
-                    <button
-                      onClick={() => onChangeGroupCount(groups.length - 1)}
-                      className="px-1.5 font-bold text-slate-400 hover:text-indigo-500 cursor-pointer"
-                    >
-                      −
-                    </button>
-                    <span className="px-1 font-black text-indigo-500">{groups.length}</span>
-                    <button
-                      onClick={() => onChangeGroupCount(groups.length + 1)}
-                      className="px-1.5 font-bold text-slate-400 hover:text-indigo-500 cursor-pointer"
-                    >
-                      +
-                    </button>
+                    <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
+                    <span className="truncate">
+                      NT: {typeof group.leader === 'number' ? `Số ${group.leader}` : group.leader}
+                    </span>
                   </div>
-                </div>
-              </div>
-            </div>
+                )}
 
-            <div className="flex items-center flex-wrap gap-2 sm:gap-2.5">
-              <button
-                onClick={onUndoGroups}
-                disabled={!canUndoGroups}
-                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 border transition-all ${
-                  canUndoGroups
-                    ? isLightMode
-                      ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300 cursor-pointer'
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 cursor-pointer'
-                    : 'opacity-40 cursor-not-allowed border-slate-700/40 text-slate-500'
-                }`}
-                title="Hoàn tác thao tác cộng/trừ điểm nhóm vừa rồi (Ctrl+Z)"
-              >
-                <Undo2 className="w-4 h-4" />
-                <span>Hoàn tác</span>
-              </button>
+                <div className="py-5 sm:py-6 px-4 flex flex-col items-center justify-center relative">
+                  <span
+                    className={`font-black font-display text-6xl sm:text-8xl tabular-nums tracking-tighter leading-none transition-all ${
+                      isTopScorer
+                        ? 'text-amber-500 text-shadow-glow'
+                        : isHighScorer
+                          ? 'text-emerald-500'
+                          : isLightMode
+                            ? 'text-slate-900'
+                            : 'text-white'
+                    }`}
+                  >
+                    {group.score}
+                  </span>
 
-              <button
-                onClick={() => {
-                  launchGrandFireworks(0.5);
-                  triggerCelebrationBanner('CẢ LỚP', maxGroupScore, 'TIẾT HỌC SÔI NỔI · BẮN PHÁO HOA ĂN MỪNG!');
-                }}
-                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer shadow-sm ${
-                  isLightMode
-                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
-                    : 'bg-amber-950/70 hover:bg-amber-900 text-amber-300 border border-amber-700/60'
-                }`}
-              >
-                <Sparkles className="w-4 h-4 text-amber-500 fill-amber-400" />
-                <span>Pháo hoa 🎆</span>
-              </button>
-
-              <button
-                onClick={handleResetGroupScores}
-                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 border transition-colors cursor-pointer ${
-                  isLightMode
-                    ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
-                    : 'bg-rose-950/60 hover:bg-rose-900 text-rose-300 border-rose-800'
-                }`}
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Đặt về 0</span>
-              </button>
-
-              <button
-                onClick={handleOpenCeremony}
-                disabled={maxGroupScore === 0}
-                className={`px-4 py-2.5 rounded-2xl font-black font-display text-xs sm:text-sm flex items-center gap-1.5 shadow-lg transition-transform active:scale-95 ${
-                  maxGroupScore > 0
-                    ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 shadow-amber-500/30 cursor-pointer'
-                    : 'opacity-50 cursor-not-allowed bg-slate-800 text-slate-500'
-                }`}
-              >
-                <Award className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
-                <span>VINH DANH 🥇</span>
-              </button>
-            </div>
-          </div>
-
-          <div
-            className={`grid gap-4 sm:gap-5 ${
-              groups.length <= 4
-                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
-                : 'grid-cols-2 md:grid-cols-4'
-            }`}
-          >
-            {groups.map((group) => {
-              const isTopScorer = group.score === maxGroupScore && maxGroupScore > 0;
-              const rank = sortedGroupsByScore.findIndex((g) => g.id === group.id) + 1;
-              const isHighScorer = group.score >= 10;
-
-              return (
-                <div
-                  key={group.id}
-                  className={`rounded-3xl border-3 flex flex-col justify-between overflow-hidden transition-all duration-300 relative ${
-                    isTopScorer
-                      ? 'border-amber-400 ring-4 ring-amber-400/40 shadow-2xl scale-[1.02] bg-gradient-to-b from-amber-500/10 via-transparent to-transparent'
-                      : isLightMode
-                        ? 'bg-white border-slate-300 shadow-md hover:border-slate-400'
-                        : 'bg-slate-900/90 border-slate-800 shadow-xl hover:border-slate-700'
-                  }`}
-                >
-                  <div className={`px-4 py-3 text-white flex items-center justify-between ${group.badgeColor}`}>
-                    <div className="flex items-center gap-2 flex-1 mr-2 min-w-0">
-                      {editingId === group.id ? (
-                        <div className="flex items-center gap-1 w-full">
-                          <input
-                            type="text"
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && saveEditing()}
-                            autoFocus
-                            className="w-full bg-black/40 text-white px-2 py-0.5 rounded font-bold text-sm outline-none border border-white/40"
-                          />
-                          <button onClick={saveEditing} className="p-1 hover:bg-black/30 rounded cursor-pointer">
-                            <Check className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div
-                          className="flex items-center gap-1.5 group cursor-pointer min-w-0"
-                          onClick={() => startEditing(group)}
-                          title="Bấm để đổi tên nhóm/tổ"
-                        >
-                          <h4 className="font-black font-display text-base sm:text-lg uppercase tracking-wider truncate">
-                            {group.name}
-                          </h4>
-                          <Edit2 className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                        </div>
-                      )}
-                    </div>
-
-                    {maxGroupScore > 0 && (
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-black shrink-0 ${
-                          rank === 1 ? 'bg-amber-400 text-amber-950 shadow' : 'bg-black/30 text-white'
-                        }`}
-                      >
-                        {rank === 1 ? '🥇 #1' : rank === 2 ? '🥈 #2' : rank === 3 ? '🥉 #3' : `#${rank}`}
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <span className="text-[11px] uppercase font-bold text-slate-400 tracking-widest">
+                      ĐIỂM SỐ
+                    </span>
+                    {isHighScorer && (
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-500 px-1.5 py-0.2 rounded font-bold">
+                        <Flame className="w-3 h-3 inline" /> CAO
                       </span>
                     )}
                   </div>
 
-                  {group.leader !== undefined && (
-                    <div
-                      className={`px-3 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-b truncate ${
-                        isLightMode
-                          ? 'bg-amber-50 border-amber-200 text-amber-900'
-                          : 'bg-amber-950/30 border-slate-800 text-amber-300'
-                      }`}
-                    >
-                      <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
-                      <span className="truncate">
-                        NT: {typeof group.leader === 'number' ? `Số ${group.leader}` : group.leader}
-                      </span>
-                    </div>
-                  )}
+                  <button
+                    onClick={(e) => handleCongratulateEntity(group.name, group.score, e)}
+                    className={`mt-3 px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all transform hover:scale-105 active:scale-95 cursor-pointer shadow-sm ${
+                      isTopScorer
+                        ? 'bg-amber-400 text-amber-950 hover:bg-amber-300'
+                        : isLightMode
+                          ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
+                          : 'bg-slate-800 hover:bg-indigo-950 text-indigo-300 border border-slate-700 hover:border-indigo-500'
+                    }`}
+                  >
+                    <PartyPopper className="w-3.5 h-3.5" />
+                    <span>Chúc mừng 🎉</span>
+                  </button>
+                </div>
 
-                  <div className="py-5 sm:py-6 px-4 flex flex-col items-center justify-center relative">
-                    <span
-                      className={`font-black font-display text-6xl sm:text-8xl tabular-nums tracking-tighter leading-none transition-all ${
-                        isTopScorer
-                          ? 'text-amber-500 text-shadow-glow'
-                          : isHighScorer
-                            ? 'text-emerald-500'
-                            : isLightMode
-                              ? 'text-slate-900'
-                              : 'text-white'
-                      }`}
+                <div
+                  className={`p-3 sm:p-4 bg-slate-500/5 border-t flex flex-col gap-2 ${
+                    isLightMode ? 'border-slate-200' : 'border-slate-800'
+                  }`}
+                >
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => updateGroupScore(group.id, -1)}
+                      className="py-3 px-2 rounded-2xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-black font-display text-2xl flex items-center justify-center gap-1 shadow-md shadow-rose-600/30 transition-all cursor-pointer"
                     >
-                      {group.score}
-                    </span>
-
-                    <div className="flex items-center gap-1.5 mt-2">
-                      <span className="text-[11px] uppercase font-bold text-slate-400 tracking-widest">
-                        ĐIỂM SỐ
-                      </span>
-                      {isHighScorer && (
-                        <span className="text-[10px] bg-emerald-500/20 text-emerald-500 px-1.5 py-0.2 rounded font-bold">
-                          ⭐ ĐIỂM CAO
-                        </span>
-                      )}
-                    </div>
+                      <Minus className="w-6 h-6 stroke-[3]" />
+                      <span>1</span>
+                    </button>
 
                     <button
-                      onClick={(e) => handleCongratulateEntity(group.name, group.score, e)}
-                      className={`mt-3 px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all transform hover:scale-105 active:scale-95 cursor-pointer shadow-sm ${
-                        isTopScorer
-                          ? 'bg-amber-400 text-amber-950 hover:bg-amber-300'
-                          : isLightMode
-                            ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
-                            : 'bg-slate-800 hover:bg-indigo-950 text-indigo-300 border border-slate-700 hover:border-indigo-500'
-                      }`}
+                      onClick={() => updateGroupScore(group.id, 1)}
+                      className="py-3 px-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black font-display text-2xl flex items-center justify-center gap-1 shadow-md shadow-emerald-600/30 transition-all cursor-pointer"
                     >
-                      <PartyPopper className="w-3.5 h-3.5" />
-                      <span>Chúc mừng 🎉</span>
+                      <Plus className="w-6 h-6 stroke-[3]" />
+                      <span>1</span>
                     </button>
                   </div>
 
-                  <div
-                    className={`p-3 sm:p-4 bg-slate-500/5 border-t flex flex-col gap-2 ${
-                      isLightMode ? 'border-slate-200' : 'border-slate-800'
-                    }`}
-                  >
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => updateGroupScore(group.id, -1)}
-                        className="py-3 px-2 rounded-2xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-black font-display text-2xl flex items-center justify-center gap-1 shadow-md shadow-rose-600/30 transition-all cursor-pointer"
-                      >
-                        <Minus className="w-6 h-6 stroke-[3]" />
-                        <span>1</span>
-                      </button>
-
-                      <button
-                        onClick={() => updateGroupScore(group.id, 1)}
-                        className="py-3 px-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black font-display text-2xl flex items-center justify-center gap-1 shadow-md shadow-emerald-600/30 transition-all cursor-pointer"
-                      >
-                        <Plus className="w-6 h-6 stroke-[3]" />
-                        <span>1</span>
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => updateGroupScore(group.id, 2)}
-                        className={`py-1.5 px-2 rounded-xl font-bold text-xs sm:text-sm active:scale-95 transition-all cursor-pointer ${
-                          isLightMode
-                            ? 'bg-indigo-100 hover:bg-indigo-200 text-indigo-800'
-                            : 'bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400'
-                        }`}
-                      >
-                        +2 điểm
-                      </button>
-                      <button
-                        onClick={() => {
-                          updateGroupScore(group.id, 5);
-                          launchGrandFireworks(0.5);
-                        }}
-                        className={`py-1.5 px-2 rounded-xl font-bold text-xs sm:text-sm active:scale-95 transition-all cursor-pointer ${
-                          isLightMode
-                            ? 'bg-amber-100 hover:bg-amber-200 text-amber-900'
-                            : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-400'
-                        }`}
-                      >
-                        +5 điểm ⭐
-                      </button>
-                    </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => updateGroupScore(group.id, 2)}
+                      className={`py-1.5 px-2 rounded-xl font-bold text-xs sm:text-sm active:scale-95 transition-all cursor-pointer ${
+                        isLightMode
+                          ? 'bg-indigo-100 hover:bg-indigo-200 text-indigo-800'
+                          : 'bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400'
+                      }`}
+                    >
+                      +2 điểm
+                    </button>
+                    <button
+                      onClick={() => {
+                        updateGroupScore(group.id, 5);
+                        launchGrandFireworks(0.5);
+                      }}
+                      className={`py-1.5 px-2 rounded-xl font-bold text-xs sm:text-sm active:scale-95 transition-all cursor-pointer ${
+                        isLightMode
+                          ? 'bg-amber-100 hover:bg-amber-200 text-amber-900'
+                          : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-400'
+                      }`}
+                    >
+                      +5 điểm ⭐
+                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </>
+              </div>
+            );
+          })}
+        </div>
       )}
 
-      {/* Award Ceremony Celebration Modal (Works for BOTH Top Students of Month & Top Groups!) */}
+      {/* Ceremony Modal */}
       {showCeremony && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div
-            className={`w-full max-w-2xl rounded-3xl border-4 border-amber-400 p-8 sm:p-10 text-center shadow-2xl relative animate-in zoom-in-95 duration-200 ${
+            className={`w-full max-w-xl rounded-3xl border-4 border-amber-400 p-8 text-center shadow-2xl animate-in zoom-in-95 duration-200 ${
               isLightMode ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'
             }`}
           >
-            <div className="w-24 h-24 mx-auto rounded-full bg-amber-400/20 text-amber-500 flex items-center justify-center mb-4 ring-8 ring-amber-400/30 animate-pulse">
-              <Trophy className="w-14 h-14" />
+            <div className="w-20 h-20 mx-auto rounded-full bg-amber-400/20 text-amber-500 flex items-center justify-center mb-4 ring-8 ring-amber-400/30">
+              <Trophy className="w-11 h-11" />
             </div>
 
-            <span className="text-sm font-bold uppercase tracking-widest text-amber-500 block mb-1">
+            <span className="text-xs font-black uppercase tracking-widest text-amber-500 block mb-1">
               {scoreMode === 'students'
-                ? `NGÔI SAO XUẤT SẮC · ${formatMonthLabel(selectedMonth).toUpperCase()}`
-                : 'CHÚC MỪNG NHÓM CHIẾN THẮNG XUẤT SẮC!'}
+                ? `DẪN ĐẦU ${activeClassName?.toUpperCase() || 'LỚP'} · ${formatMonthLabel(selectedMonth).toUpperCase()}`
+                : 'NHÓM DẪN ĐẦU XUẤT SẮC'}
             </span>
-            <h2 className="text-3xl sm:text-5xl font-black font-display mb-4 leading-tight">
+            <h2 className="text-3xl sm:text-4xl font-black font-display mb-4">
               {scoreMode === 'students'
                 ? topStudents.map((s) => s.name).join(' & ')
                 : topGroups.map((g) => g.name).join(' & ')}
             </h2>
 
-            <div className="inline-block px-8 py-3 rounded-2xl bg-amber-400 text-amber-950 font-black text-2xl sm:text-3xl font-display mb-6 shadow-xl">
-              ĐẠT {scoreMode === 'students' ? maxStudentScore : maxGroupScore} ĐIỂM DẪN ĐẦU 🥇
+            <div className="inline-block px-6 py-2.5 rounded-2xl bg-amber-400 text-amber-950 font-black text-xl sm:text-2xl font-display mb-6 shadow-lg">
+              {scoreMode === 'students' ? maxStudentScore : maxGroupScore} ĐIỂM 🥇
             </div>
 
-            {/* Top 3 Leaderboard Podium for Monthly Student Ceremony */}
-            {scoreMode === 'students' && studentsSortedByScore.filter((s) => s.score > 0).length > 1 && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-6 text-left">
-                {studentsSortedByScore
-                  .filter((s) => s.score > 0)
-                  .slice(0, 3)
-                  .map((s, idx) => (
+            {scoreMode === 'students' && rankedStudents.length > 1 && (
+              <div className="flex flex-col gap-1.5 mb-6 text-left max-w-sm mx-auto">
+                {rankedStudents.slice(0, 5).map((s) => {
+                  const r = getStudentRank(s.score) || 1;
+                  return (
                     <div
                       key={s.name}
-                      className={`p-3 rounded-2xl border flex items-center justify-between gap-2 ${
-                        isLightMode
-                          ? 'bg-slate-50 border-slate-200'
-                          : 'bg-slate-800/80 border-slate-700'
+                      className={`px-3.5 py-2 rounded-xl border flex items-center justify-between text-sm font-bold ${
+                        isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-800 border-slate-700'
                       }`}
                     >
-                      <div className="min-w-0">
-                        <span className="text-xs font-black text-amber-500 block">
-                          {idx === 0 ? '🥇 Hạng 1' : idx === 1 ? '🥈 Hạng 2' : '🥉 Hạng 3'}
-                        </span>
-                        <span className="text-sm font-bold truncate block">{s.name}</span>
-                      </div>
-                      <span className="font-display font-black text-lg text-emerald-500 shrink-0">
-                        {s.score}đ
+                      <span>
+                        {r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : `#${r}`} {s.name}
                       </span>
+                      <span className="font-display font-black text-emerald-500">{s.score}đ</span>
                     </div>
-                  ))}
+                  );
+                })}
               </div>
             )}
 
-            <div className="flex flex-wrap justify-center gap-3">
+            <div className="flex justify-center gap-3">
               <button
                 onClick={launchContinuousCelebration}
-                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black flex items-center gap-2 cursor-pointer shadow-lg hover:scale-105 active:scale-95 transition-all"
+                className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm flex items-center gap-1.5 cursor-pointer"
               >
-                <Sparkles className="w-5 h-5 fill-current" />
-                <span>Bắn thêm pháo hoa 🎆</span>
+                <Sparkles className="w-4 h-4 fill-current" />
+                <span>Pháo hoa 🎆</span>
               </button>
               <button
                 onClick={() => setShowCeremony(false)}
-                className="px-6 py-3 rounded-2xl bg-slate-700 hover:bg-slate-600 text-white font-bold cursor-pointer transition-colors"
+                className="px-5 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm cursor-pointer"
               >
                 Đóng
               </button>

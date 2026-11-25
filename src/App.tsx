@@ -422,6 +422,7 @@ export default function App() {
             isLightMode={isLightMode}
             isActive={activeTab === 'scores'}
             activeClassName={activeClass?.name}
+            savedClasses={savedClasses}
             students={customList}
             absentStudents={absentStudents}
             groups={scoreGroups}
