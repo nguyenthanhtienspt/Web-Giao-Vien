@@ -1,4 +1,4 @@
-import { GroupItem, GroupScore, ClassMonthlyStudentScores } from '../types';
+import { GroupItem, GroupScore, ClassMonthlyStudentScores, ClassMonthlyGradeDates } from '../types';
 
 export const SCORE_GROUP_PALETTES = [
   { color: 'border-blue-500', badgeColor: 'bg-blue-600' },
@@ -16,10 +16,10 @@ export const SCORE_GROUP_PALETTES = [
 ];
 
 export const DEFAULT_QUESTIONS = [
-  'Câu 1: Nêu nội dung trọng tâm của bài học hôm trước?',
-  'Câu 2: Trình bày khái niệm hoặc công thức quan trọng nhất vừa học?',
-  'Câu 3: Cho một ví dụ thực tế minh họa cho kiến thức trong bài?',
-  'Câu 4: Giải thích nguyên nhân / ý nghĩa của hiện tượng được nêu trong bài?',
+  'Câu 1: Nêu nội dung trọng tâm của bài học hôm trước? | Học sinh nêu được từ khóa và ý chính của bài.',
+  'Câu 2: Trình bày khái niệm hoặc công thức quan trọng nhất vừa học? | Phát biểu đúng định nghĩa và giải thích ký hiệu.',
+  'Câu 3: Cho một ví dụ thực tế minh họa cho kiến thức trong bài? | Ví dụ gắn với đời sống hàng ngày và giải thích hợp lý.',
+  'Câu 4: Giải thích nguyên nhân hoặc ý nghĩa của hiện tượng được nêu trong bài?',
   'Câu 5: Vận dụng kiến thức vừa học để giải quyết bài tập tình huống nhanh?',
   'Câu 6: So sánh điểm giống và khác nhau giữa hai khái niệm vừa tìm hiểu?',
 ];
@@ -29,8 +29,50 @@ const PICKED_KEY = 'tro_ly_picked_by_class_v1';
 const SPLIT_GROUPS_KEY = 'tro_ly_split_groups_by_class_v1';
 const SCOREBOARD_BY_CLASS_KEY = 'tro_ly_scoreboard_by_class_v1';
 const STUDENT_MONTHLY_SCORES_KEY = 'tro_ly_student_monthly_scores_v1';
+const STUDENT_GRADE_DATES_KEY = 'tro_ly_student_grade_dates_v1';
 const LEGACY_SCOREBOARD_KEY = 'tro_ly_lop_hoc_scoreboard_v2';
-const QUESTION_BANK_KEY = 'tro_ly_question_bank_v1';
+const QUESTION_BANK_KEY = 'tro_ly_question_bank_v2';
+const LEGACY_QUESTION_BANK_KEY = 'tro_ly_question_bank_v1';
+
+export type QuestionSetKey = 'chung' | 'khoi6' | 'khoi7' | 'khoi8' | 'khoi9';
+
+export const QUESTION_SET_LABELS: Record<QuestionSetKey, string> = {
+  chung: 'Dùng chung',
+  khoi6: 'Khối 6',
+  khoi7: 'Khối 7',
+  khoi8: 'Khối 8',
+  khoi9: 'Khối 9',
+};
+
+export function detectQuestionSetForClassName(className?: string): QuestionSetKey {
+  if (!className) return 'chung';
+  if (/6/.test(className)) return 'khoi6';
+  if (/7/.test(className)) return 'khoi7';
+  if (/8/.test(className)) return 'khoi8';
+  if (/9/.test(className)) return 'khoi9';
+  return 'chung';
+}
+
+export function parseQuestionWithAnswer(rawLine: string): {
+  question: string;
+  answer: string | null;
+} {
+  const trimmed = rawLine.trim();
+  const pipeIdx = trimmed.indexOf('|');
+  if (pipeIdx !== -1) {
+    const q = trimmed.slice(0, pipeIdx).trim();
+    const a = trimmed.slice(pipeIdx + 1).trim();
+    return { question: q || trimmed, answer: a.length > 0 ? a : null };
+  }
+  return { question: trimmed, answer: null };
+}
+
+export function getTodayShortLabel(): string {
+  const now = new Date();
+  const d = String(now.getDate()).padStart(2, '0');
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  return `${d}/${m}`;
+}
 
 export function getCurrentMonthKey(): string {
   const now = new Date();
@@ -107,8 +149,68 @@ export function calcGradeStats(grades: number[]): {
 export interface QuestionBankState {
   enabled: boolean;
   avoidRepeat: boolean;
-  questions: string[];
-  asked: string[];
+  autoMatchGrade: boolean;
+  activeSet: QuestionSetKey;
+  sets: Record<QuestionSetKey, string[]>;
+  askedBySet: Record<QuestionSetKey, string[]>;
+}
+
+export function createDefaultQuestionSets(): Record<QuestionSetKey, string[]> {
+  return {
+    chung: [...DEFAULT_QUESTIONS],
+    khoi6: [],
+    khoi7: [],
+    khoi8: [],
+    khoi9: [],
+  };
+}
+
+export function flattenQuestionSetsForCloud(state: QuestionBankState): string[] {
+  const lines: string[] = [];
+  (Object.keys(QUESTION_SET_LABELS) as QuestionSetKey[]).forEach((key) => {
+    const arr = state.sets[key] || [];
+    arr.forEach((q) => {
+      const clean = q.trim();
+      if (!clean) return;
+      if (key === 'chung') {
+        lines.push(clean);
+      } else {
+        lines.push(`[${key}] ${clean}`);
+      }
+    });
+  });
+  return lines;
+}
+
+export function parseCloudQuestionsToSets(lines: string[]): Record<QuestionSetKey, string[]> {
+  const sets: Record<QuestionSetKey, string[]> = {
+    chung: [],
+    khoi6: [],
+    khoi7: [],
+    khoi8: [],
+    khoi9: [],
+  };
+  lines.forEach((raw) => {
+    const trimmed = String(raw || '').trim();
+    if (!trimmed) return;
+    const match = trimmed.match(/^\[(chung|khoi6|khoi7|khoi8|khoi9)\]\s*(.+)$/i);
+    if (match) {
+      const key = match[1].toLowerCase() as QuestionSetKey;
+      sets[key].push(match[2].trim());
+    } else {
+      sets.chung.push(trimmed);
+    }
+  });
+  if (
+    sets.chung.length === 0 &&
+    sets.khoi6.length === 0 &&
+    sets.khoi7.length === 0 &&
+    sets.khoi8.length === 0 &&
+    sets.khoi9.length === 0
+  ) {
+    sets.chung = [...DEFAULT_QUESTIONS];
+  }
+  return sets;
 }
 
 export function createDefaultScoreGroups(count: number = 8): GroupScore[] {
@@ -237,22 +339,87 @@ export const classroomStateStorage = {
     writeJsonMap(STUDENT_MONTHLY_SCORES_KEY, map);
   },
 
-  // 5. Question bank for Random Picker
+  // 4c. Optional short DD/MM date labels per student grade
+  getMonthlyGradeDatesForClass(classId: string): ClassMonthlyGradeDates {
+    const map = readJsonMap<Record<string, ClassMonthlyGradeDates>>(STUDENT_GRADE_DATES_KEY, {});
+    const clsData = map[classId];
+    return clsData && typeof clsData === 'object' ? clsData : {};
+  },
+
+  saveMonthlyGradeDatesForClass(classId: string, datesMap: ClassMonthlyGradeDates): void {
+    const map = readJsonMap<Record<string, ClassMonthlyGradeDates>>(STUDENT_GRADE_DATES_KEY, {});
+    map[classId] = datesMap;
+    writeJsonMap(STUDENT_GRADE_DATES_KEY, map);
+  },
+
+  // 5. Question bank for Random Picker (multi-grade sets + answer reveal)
   getQuestionBank(): QuestionBankState {
+    const emptyAsked: Record<QuestionSetKey, string[]> = {
+      chung: [],
+      khoi6: [],
+      khoi7: [],
+      khoi8: [],
+      khoi9: [],
+    };
     const fallback: QuestionBankState = {
       enabled: false,
       avoidRepeat: true,
-      questions: DEFAULT_QUESTIONS,
-      asked: [],
+      autoMatchGrade: true,
+      activeSet: 'chung',
+      sets: createDefaultQuestionSets(),
+      askedBySet: emptyAsked,
     };
-    const saved = readJsonMap<QuestionBankState | null>(QUESTION_BANK_KEY, null);
-    if (!saved || !Array.isArray(saved.questions)) return fallback;
-    return {
-      enabled: Boolean(saved.enabled),
-      avoidRepeat: saved.avoidRepeat !== false,
-      questions: saved.questions.length > 0 ? saved.questions : DEFAULT_QUESTIONS,
-      asked: Array.isArray(saved.asked) ? saved.asked : [],
-    };
+
+    const saved = readJsonMap<Partial<QuestionBankState> | null>(QUESTION_BANK_KEY, null);
+    if (saved && saved.sets && typeof saved.sets === 'object') {
+      const defaultSets = createDefaultQuestionSets();
+      return {
+        enabled: Boolean(saved.enabled),
+        avoidRepeat: saved.avoidRepeat !== false,
+        autoMatchGrade: saved.autoMatchGrade !== false,
+        activeSet: (saved.activeSet as QuestionSetKey) || 'chung',
+        sets: {
+          chung: Array.isArray(saved.sets.chung) ? saved.sets.chung : defaultSets.chung,
+          khoi6: Array.isArray(saved.sets.khoi6) ? saved.sets.khoi6 : [],
+          khoi7: Array.isArray(saved.sets.khoi7) ? saved.sets.khoi7 : [],
+          khoi8: Array.isArray(saved.sets.khoi8) ? saved.sets.khoi8 : [],
+          khoi9: Array.isArray(saved.sets.khoi9) ? saved.sets.khoi9 : [],
+        },
+        askedBySet: {
+          ...emptyAsked,
+          ...(saved.askedBySet || {}),
+        },
+      };
+    }
+
+    // Migrate v1 question bank seamlessly if present
+    const legacy = readJsonMap<{
+      enabled?: boolean;
+      avoidRepeat?: boolean;
+      questions?: string[];
+      asked?: string[];
+    } | null>(LEGACY_QUESTION_BANK_KEY, null);
+
+    if (legacy && Array.isArray(legacy.questions)) {
+      const migrated: QuestionBankState = {
+        enabled: Boolean(legacy.enabled),
+        avoidRepeat: legacy.avoidRepeat !== false,
+        autoMatchGrade: true,
+        activeSet: 'chung',
+        sets: {
+          ...createDefaultQuestionSets(),
+          chung: legacy.questions.length > 0 ? legacy.questions : DEFAULT_QUESTIONS,
+        },
+        askedBySet: {
+          ...emptyAsked,
+          chung: Array.isArray(legacy.asked) ? legacy.asked : [],
+        },
+      };
+      writeJsonMap(QUESTION_BANK_KEY, migrated);
+      return migrated;
+    }
+
+    return fallback;
   },
 
   saveQuestionBank(state: QuestionBankState): void {

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import * as XLSX from 'xlsx';
 import {
   Trophy,
   RotateCcw,
@@ -22,8 +21,16 @@ import {
   FileSpreadsheet,
   School,
   X,
+  TrendingUp,
+  Download,
+  Medal,
 } from 'lucide-react';
-import { GroupScore, ClassMonthlyStudentScores, SavedClass } from '../types';
+import {
+  GroupScore,
+  ClassMonthlyStudentScores,
+  ClassMonthlyGradeDates,
+  SavedClass,
+} from '../types';
 import { soundManager } from '../services/sound';
 import {
   classroomStateStorage,
@@ -38,13 +45,13 @@ interface ScoreboardTabProps {
   activeClassName?: string;
   savedClasses?: SavedClass[];
   students: string[];
-  absentStudents?: string[];
   groups: GroupScore[];
   onUpdateGroups: (next: GroupScore[], recordUndo?: boolean) => void;
   canUndoGroups: boolean;
   onUndoGroups: () => void;
   onChangeGroupCount: (count: number) => void;
   monthlyScores: ClassMonthlyStudentScores;
+  monthlyGradeDates?: ClassMonthlyGradeDates;
   selectedMonth: string;
   onSelectMonth: (monthKey: string) => void;
   onAddStudentGrade: (studentName: string, grade: number, monthKey?: string) => void;
@@ -52,6 +59,7 @@ interface ScoreboardTabProps {
   onResetMonthScores: (monthKey: string) => void;
   canUndoStudentScore: boolean;
   onUndoStudentScore: () => void;
+  onNotify?: (msg: string) => void;
 }
 
 const FIREWORK_COLORS = [
@@ -92,19 +100,38 @@ function getGradeChipStyle(grade: number, isLightMode: boolean): string {
     : 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-900';
 }
 
+export type StudentBadgeType = 'streak' | 'improved' | null;
+
+function detectStudentBadge(grades: number[]): StudentBadgeType {
+  if (grades.length < 2) return null;
+  const last = grades[grades.length - 1];
+  const prev = grades[grades.length - 2];
+  if (last >= 9 && prev >= 9) {
+    return 'streak';
+  }
+  const first = grades[0];
+  if (last - first >= 1.5 && last > prev) {
+    return 'improved';
+  }
+  if (last - prev >= 2) {
+    return 'improved';
+  }
+  return null;
+}
+
 export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
   isLightMode,
   isActive = true,
   activeClassName,
   savedClasses = [],
   students,
-  absentStudents = [],
   groups,
   onUpdateGroups,
   canUndoGroups,
   onUndoGroups,
   onChangeGroupCount,
   monthlyScores,
+  monthlyGradeDates = {},
   selectedMonth,
   onSelectMonth,
   onAddStudentGrade,
@@ -112,10 +139,11 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
   onResetMonthScores,
   canUndoStudentScore,
   onUndoStudentScore,
+  onNotify,
 }) => {
-  const [scoreMode, setScoreMode] = useState<'students' | 'groups'>('students');
+  const [scoreMode, setScoreMode] = useState<'students' | 'podium' | 'groups'>('students');
   const [rankingScope, setRankingScope] = useState<'inClass' | 'allClasses'>('inClass');
-  const [rankMetric, setRankMetric] = useState<'avg' | 'sum'>('avg');
+  const [rankMetric, setRankMetric] = useState<'avg' | 'count'>('avg');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
   const [showCeremony, setShowCeremony] = useState<boolean>(false);
@@ -134,9 +162,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
 
   useEffect(() => {
     return () => {
-      if (bannerTimeoutRef.current) {
-        window.clearTimeout(bannerTimeoutRef.current);
-      }
+      if (bannerTimeoutRef.current) window.clearTimeout(bannerTimeoutRef.current);
     };
   }, []);
 
@@ -148,7 +174,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        if (scoreMode === 'students' && canUndoStudentScore) {
+        if ((scoreMode === 'students' || scoreMode === 'podium') && canUndoStudentScore) {
           e.preventDefault();
           onUndoStudentScore();
         } else if (scoreMode === 'groups' && canUndoGroups) {
@@ -202,9 +228,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
   };
 
   const triggerCelebrationBanner = (groupName: string, score: string, message: string) => {
-    if (bannerTimeoutRef.current) {
-      window.clearTimeout(bannerTimeoutRef.current);
-    }
+    if (bannerTimeoutRef.current) window.clearTimeout(bannerTimeoutRef.current);
     setCelebrationBanner({ groupName, score, message });
     bannerTimeoutRef.current = window.setTimeout(() => {
       setCelebrationBanner(null);
@@ -270,12 +294,13 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
     setEditingId(null);
   };
 
-  // --- INDIVIDUAL STUDENT GRADE HANDLERS (VD: Điểm 7, Điểm 8, Điểm 9...) ---
+  // --- INDIVIDUAL STUDENT GRADE HANDLERS ---
   const currentMonthMap = monthlyScores[selectedMonth] || {};
+  const currentMonthDatesMap = monthlyGradeDates[selectedMonth] || {};
 
   const handleRecordGrade = (studentName: string, grade: number, e?: React.MouseEvent) => {
     if (!Number.isFinite(grade) || grade < 0 || grade > 10) {
-      alert('Vui lòng nhập điểm trong thang điểm từ 0 đến 10 (ví dụ: 7, 8, 8.5, 9, 10)!');
+      onNotify?.('Vui lòng nhập điểm từ 0 đến 10 (VD: 7, 8, 8.5, 9, 10)!');
       return;
     }
     const cleanGrade = Math.round(grade * 100) / 100;
@@ -291,6 +316,8 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
         `Điểm ${formatGradeValue(cleanGrade)}`,
         cleanGrade === 10 ? 'ĐIỂM 10 TUYỆT ĐỐI · XUẤT SẮC!' : 'ĐẠT ĐIỂM GIỎI · RẤT ĐÁNG KHEN!'
       );
+    } else {
+      onNotify?.(`Đã ghi điểm ${formatGradeValue(cleanGrade)} cho ${studentName}!`);
     }
   };
 
@@ -312,16 +339,19 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
 
   const studentRows = students.map((name, idx) => {
     const grades = currentMonthMap[name] || [];
+    const dates = currentMonthDatesMap[name] || [];
     const stats = calcGradeStats(grades);
+    const badge = detectStudentBadge(grades);
     return {
       stt: idx + 1,
       name,
       grades,
+      dates,
       count: stats.count,
       avg: stats.avg,
       sum: stats.sum,
       max: stats.max,
-      isAbsent: absentStudents.includes(name),
+      badge,
     };
   });
 
@@ -331,7 +361,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
       if (rankMetric === 'avg') {
         return b.avg - a.avg || b.count - a.count || b.sum - a.sum || a.stt - b.stt;
       }
-      return b.sum - a.sum || b.avg - a.avg || a.stt - b.stt;
+      return b.count - a.count || b.avg - a.avg || b.sum - a.sum || a.stt - b.stt;
     });
 
   const getStudentRank = (studentName: string): number | null => {
@@ -343,7 +373,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
     const isTie =
       rankMetric === 'avg'
         ? prev.avg === cur.avg && prev.count === cur.count
-        : prev.sum === cur.sum && prev.avg === cur.avg;
+        : prev.count === cur.count && prev.avg === cur.avg;
     if (isTie) {
       return getStudentRank(prev.name);
     }
@@ -351,12 +381,13 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
   };
 
   const topStudents = rankedStudents.filter((s) => getStudentRank(s.name) === 1);
+  const improvedStudents = studentRows.filter((s) => s.badge === 'improved');
 
   // Class-level summary stats for active class
   const allActiveClassGrades = studentRows.flatMap((s) => s.grades);
   const activeClassStats = calcGradeStats(allActiveClassGrades);
 
-  // Cross-class leaderboard for the selected month ("Xếp hạng các lớp")
+  // Cross-class leaderboard for the selected month ("Đua Top 12 lớp")
   const classLeaderboard = savedClasses
     .map((cls) => {
       const mScores =
@@ -383,7 +414,22 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
         a.name.localeCompare(b.name, 'vi', { numeric: true })
     );
 
-  const normalizedQuery = studentQuery.trim().toLowerCase();
+  // Parse smart search query: supports plain search ("An" or "12") AND command ("An 9" or "12 8.5")
+  const parseQuickCommand = (raw: string): { filterPart: string; gradePart: number | null } => {
+    const trimmed = raw.trim();
+    const match = trimmed.match(/^(.+?)\s+(\d+(?:[.,]\d+)?)$/);
+    if (match) {
+      const num = parseFloat(match[2].replace(',', '.'));
+      if (Number.isFinite(num) && num >= 0 && num <= 10) {
+        return { filterPart: match[1].trim(), gradePart: num };
+      }
+    }
+    return { filterPart: trimmed, gradePart: null };
+  };
+
+  const { filterPart, gradePart } = parseQuickCommand(studentQuery);
+  const normalizedQuery = filterPart.toLowerCase();
+
   const visibleStudents = studentRows.filter((item) => {
     if (!normalizedQuery) return true;
     return (
@@ -392,7 +438,27 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
     );
   });
 
-  const handleExportMonthlyExcel = () => {
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    if (visibleStudents.length === 0) return;
+    const target = visibleStudents[0];
+    if (gradePart !== null) {
+      e.preventDefault();
+      handleRecordGrade(target.name, gradePart);
+      setStudentQuery('');
+    } else if (quickGradePreset !== null) {
+      e.preventDefault();
+      handleRecordGrade(target.name, quickGradePreset);
+      setStudentQuery('');
+    } else {
+      e.preventDefault();
+      setActiveGradeStudent(target.name);
+    }
+  };
+
+  // Lazy-loaded Excel export
+  const handleExportMonthlyExcel = async () => {
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
     const classLabel = activeClassName || 'Lop';
 
@@ -472,6 +538,146 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
     XLSX.utils.book_append_sheet(wb, wsSummary, 'Tong_Hop_Nam');
 
     XLSX.writeFile(wb, `Bang_Diem_${classLabel.replace(/\s+/g, '_')}_${selectedMonth}.xlsx`);
+    onNotify?.('Đã xuất file Excel bảng điểm thành công!');
+  };
+
+  // 1-Click Export Honor Board PNG Image for Zalo / Parents Group!
+  const handleDownloadHonorBoardPng = () => {
+    if (rankedStudents.length === 0) {
+      onNotify?.('Chưa có học sinh nào có điểm trong tháng này để xuất Bảng Vàng!');
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1400;
+    canvas.height = 920;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Deep celebratory royal gradient background
+    const bg = ctx.createLinearGradient(0, 0, 1400, 920);
+    bg.addColorStop(0, '#0f172a');
+    bg.addColorStop(0.5, '#1e1b4b');
+    bg.addColorStop(1, '#064e3b');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, 1400, 920);
+
+    // Gold decorative border
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(24, 24, 1352, 872);
+
+    // Title Banner
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = '900 44px Lexend, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      `🏆 BẢNG VÀNG VINH DANH · ${(activeClassName || 'LỚP HỌC').toUpperCase()}`,
+      700,
+      95
+    );
+
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '700 24px Plus Jakarta Sans, sans-serif';
+    ctx.fillText(
+      `${formatMonthLabel(selectedMonth).toUpperCase()}  ·  ĐTB chung cả lớp: ${activeClassStats.avg.toFixed(1)} (${activeClassStats.count} lượt điểm)`,
+      700,
+      138
+    );
+
+    // Top 3 Podium Cards
+    const podiumOrder = [
+      { item: rankedStudents[1], label: '🥈 Á QUÂN (#2)', x: 110, y: 205, w: 360, h: 210, accent: '#cbd5e1' },
+      { item: rankedStudents[0], label: '🥇 QUÁN QUÂN (#1)', x: 520, y: 175, w: 360, h: 240, accent: '#fbbf24' },
+      { item: rankedStudents[2], label: '🥉 HẠNG BA (#3)', x: 930, y: 215, w: 360, h: 200, accent: '#f59e0b' },
+    ];
+
+    podiumOrder.forEach((slot) => {
+      if (!slot.item) return;
+      ctx.save();
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.strokeStyle = slot.accent;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.roundRect(slot.x, slot.y, slot.w, slot.h, 24);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = slot.accent;
+      ctx.font = '900 20px Lexend, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(slot.label, slot.x + slot.w / 2, slot.y + 42);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 26px Lexend, sans-serif';
+      const nameStr =
+        slot.item.name.length > 22 ? slot.item.name.slice(0, 21) + '…' : slot.item.name;
+      ctx.fillText(nameStr, slot.x + slot.w / 2, slot.y + 92);
+
+      ctx.fillStyle = '#34d399';
+      ctx.font = '900 34px Lexend, sans-serif';
+      ctx.fillText(`ĐTB: ${slot.item.avg.toFixed(1)}`, slot.x + slot.w / 2, slot.y + 142);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 17px Plus Jakarta Sans, sans-serif';
+      ctx.fillText(
+        `Điểm: ${slot.item.grades.map(formatGradeValue).join(', ')} (${slot.item.count} cột)`,
+        slot.x + slot.w / 2,
+        slot.y + 178
+      );
+      ctx.restore();
+    });
+
+    // Top 4..10 List
+    const rest = rankedStudents.slice(3, 11);
+    if (rest.length > 0) {
+      ctx.fillStyle = '#fde68a';
+      ctx.font = '800 22px Lexend, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('🌟 TOP HỌC SINH TÍCH CỰC TIẾP THEO:', 90, 470);
+
+      rest.forEach((st, idx) => {
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        const rx = 90 + col * 620;
+        const ry = 495 + row * 72;
+
+        ctx.fillStyle = 'rgba(30, 41, 59, 0.8)';
+        ctx.beginPath();
+        ctx.roundRect(rx, ry, 590, 58, 14);
+        ctx.fill();
+
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = '800 20px Lexend, sans-serif';
+        ctx.fillText(`#${idx + 4}`, rx + 20, ry + 36);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '700 21px Plus Jakarta Sans, sans-serif';
+        ctx.fillText(st.name, rx + 72, ry + 36);
+
+        ctx.fillStyle = '#34d399';
+        ctx.font = '800 21px Lexend, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`TB ${st.avg.toFixed(1)} (${st.count} cột)`, rx + 568, ry + 36);
+        ctx.textAlign = 'left';
+      });
+    }
+
+    // Footer credit
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '600 16px Plus Jakarta Sans, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      `Trợ lý Lớp học THCS · Xuất ngày ${new Date().toLocaleDateString('vi-VN')}`,
+      700,
+      868
+    );
+
+    const link = document.createElement('a');
+    link.download = `Bang_Vang_${(activeClassName || 'Lop').replace(/\s+/g, '_')}_${selectedMonth}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    onNotify?.('Đã tải ảnh Bảng Vàng (.png) để gửi nhóm lớp!');
   };
 
   // Group stats
@@ -479,7 +685,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
   const sortedGroupsByScore = [...groups].sort((a, b) => b.score - a.score);
   const topGroups = groups.filter((g) => g.score === maxGroupScore && maxGroupScore > 0);
   const ceremonyHasWinner =
-    scoreMode === 'students' ? rankedStudents.length > 0 : maxGroupScore > 0;
+    scoreMode !== 'groups' ? rankedStudents.length > 0 : maxGroupScore > 0;
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col gap-4 relative">
@@ -509,7 +715,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
           isLightMode ? 'bg-white border-slate-200 shadow-xs' : 'bg-slate-900/90 border-slate-800'
         }`}
       >
-        {/* Left: Mode Toggle + Month Navigator + 1-Click Grade Preset */}
+        {/* Left: Mode Toggle (Học sinh | Bảng Vàng | Nhóm) + Month Navigator */}
         <div className="flex items-center flex-wrap gap-2">
           <div
             className={`flex items-center gap-1 p-1 rounded-xl ${
@@ -529,6 +735,25 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
               <GraduationCap className="w-4 h-4" />
               <span>Học sinh</span>
             </button>
+
+            <button
+              onClick={() => {
+                setScoreMode('podium');
+                if (rankedStudents.length > 0) soundManager.playWinner();
+              }}
+              className={`px-3 py-1.5 rounded-lg font-display font-black text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer transition-all ${
+                scoreMode === 'podium'
+                  ? 'bg-amber-500 text-slate-950 shadow'
+                  : isLightMode
+                    ? 'text-slate-600 hover:text-slate-900'
+                    : 'text-amber-400 hover:text-amber-300'
+              }`}
+              title="Chiếu Bảng Vàng & Bục Vinh Quang Top 1–2–3 toàn màn hình"
+            >
+              <Medal className="w-4 h-4" />
+              <span>Bảng Vàng</span>
+            </button>
+
             <button
               onClick={() => setScoreMode('groups')}
               className={`px-3 py-1.5 rounded-lg font-display font-black text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer transition-all ${
@@ -544,97 +769,100 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
             </button>
           </div>
 
-          {scoreMode === 'students' && (
-            <>
-              <div
-                className={`flex items-center gap-1 px-1.5 py-1 rounded-xl border ${
-                  isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
-                }`}
+          {scoreMode !== 'groups' && (
+            <div
+              className={`flex items-center gap-1 px-1.5 py-1 rounded-xl border ${
+                isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+              }`}
+            >
+              <button
+                onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, -1))}
+                className="p-1 rounded hover:bg-slate-500/20 cursor-pointer"
+                title="Tháng trước"
               >
-                <button
-                  onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, -1))}
-                  className="p-1 rounded hover:bg-slate-500/20 cursor-pointer"
-                  title="Tháng trước"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={(e) => e.target.value && onSelectMonth(e.target.value)}
-                  aria-label="Chọn tháng"
-                  className="bg-transparent text-xs sm:text-sm font-display font-black text-emerald-500 outline-none cursor-pointer px-1"
-                />
-                <button
-                  onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, 1))}
-                  className="p-1 rounded hover:bg-slate-500/20 cursor-pointer"
-                  title="Tháng sau"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => e.target.value && onSelectMonth(e.target.value)}
+                aria-label="Chọn tháng"
+                className="bg-transparent text-xs sm:text-sm font-display font-black text-emerald-500 outline-none cursor-pointer px-1"
+              />
+              <button
+                onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, 1))}
+                className="p-1 rounded hover:bg-slate-500/20 cursor-pointer"
+                title="Tháng sau"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
-              {/* Optional 1-Tap Grade Stamp for Fast Whole-Class Grading */}
-              <div
-                className={`flex items-center gap-1 p-1 rounded-xl border ${
-                  isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+          {scoreMode === 'students' && (
+            <div
+              className={`flex items-center gap-1 p-1 rounded-xl border ${
+                isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+              }`}
+              title="Chọn sẵn 1 mức điểm (5–10) nếu muốn chấm 1 chạm hàng loạt"
+            >
+              <span className="text-[11px] font-bold text-slate-400 px-1 hidden xl:inline">
+                Chấm nhanh:
+              </span>
+              <button
+                type="button"
+                onClick={() => setQuickGradePreset(null)}
+                className={`px-2 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                  quickGradePreset === null
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : isLightMode
+                      ? 'text-slate-600 hover:bg-slate-200/70'
+                      : 'text-slate-400 hover:bg-slate-800'
                 }`}
-                title="Chọn sẵn 1 mức điểm (5–10) nếu muốn chấm 1 chạm hàng loạt, hoặc để Từng em để chọn điểm riêng"
               >
-                <span className="text-[11px] font-bold text-slate-400 px-1 hidden md:inline">
-                  Chấm nhanh:
-                </span>
+                Từng em
+              </button>
+              {QUICK_GRADES.map((g) => (
                 <button
+                  key={g}
                   type="button"
-                  onClick={() => setQuickGradePreset(null)}
-                  className={`px-2 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                    quickGradePreset === null
-                      ? 'bg-indigo-600 text-white shadow-xs'
+                  onClick={() => setQuickGradePreset(quickGradePreset === g ? null : g)}
+                  className={`px-2 py-1 rounded-lg font-display font-black text-xs cursor-pointer transition-all ${
+                    quickGradePreset === g
+                      ? 'bg-emerald-600 text-white shadow-xs'
                       : isLightMode
                         ? 'text-slate-600 hover:bg-slate-200/70'
                         : 'text-slate-400 hover:bg-slate-800'
                   }`}
                 >
-                  Từng em
+                  {g}đ
                 </button>
-                {QUICK_GRADES.map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => setQuickGradePreset(quickGradePreset === g ? null : g)}
-                    className={`px-2 py-1 rounded-lg font-display font-black text-xs cursor-pointer transition-all ${
-                      quickGradePreset === g
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : isLightMode
-                          ? 'text-slate-600 hover:bg-slate-200/70'
-                          : 'text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    {g}đ
-                  </button>
-                ))}
-              </div>
-            </>
+              ))}
+            </div>
           )}
         </div>
 
         {/* Right: Minimalist Actions */}
-        {scoreMode === 'students' ? (
+        {scoreMode !== 'groups' ? (
           <div className="flex items-center flex-wrap gap-2">
-            <div className="relative w-40 sm:w-48">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={studentQuery}
-                onChange={(e) => setStudentQuery(e.target.value)}
-                placeholder="Tìm tên / STT..."
-                className={`w-full pl-8 pr-2.5 py-1.5 rounded-xl border text-xs font-medium outline-none ${
-                  isLightMode
-                    ? 'bg-slate-50 border-slate-200 text-slate-900 focus:border-emerald-500'
-                    : 'bg-slate-950 border-slate-800 text-white focus:border-emerald-500'
-                }`}
-              />
-            </div>
+            {scoreMode === 'students' && (
+              <div className="relative w-48 sm:w-60">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={studentQuery}
+                  onChange={(e) => setStudentQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Tìm tên/STT (VD: An 9 ↵)"
+                  title="Gõ tên hoặc 'Tên + Điểm' rồi nhấn Enter để chấm nhanh bằng bàn phím (VD: An 9)"
+                  className={`w-full pl-8 pr-2.5 py-1.5 rounded-xl border text-xs font-medium outline-none ${
+                    isLightMode
+                      ? 'bg-slate-50 border-slate-200 text-slate-900 focus:border-emerald-500'
+                      : 'bg-slate-950 border-slate-800 text-white focus:border-emerald-500'
+                  }`}
+                />
+              </div>
+            )}
 
             <button
               onClick={onUndoStudentScore}
@@ -649,6 +877,19 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
               title="Hoàn tác (Ctrl+Z)"
             >
               <Undo2 className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={handleDownloadHonorBoardPng}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 cursor-pointer ${
+                isLightMode
+                  ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-900'
+                  : 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/30 text-amber-300'
+              }`}
+              title="Tải ảnh Bảng Vàng (.png) để gửi tuyên dương vào nhóm Zalo lớp"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Ảnh Bảng Vàng</span>
             </button>
 
             <button
@@ -733,11 +974,208 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
       </div>
 
       {/* ===================================================================== */}
-      {/* MINIMALIST STUDENT GRADEBOOK + CLASS LEADERBOARD                      */}
+      {/* MODE 1: FULL-SCREEN PROJECTOR PODIUM ("BẢNG VÀNG & BỤC VINH QUANG")   */}
       {/* ===================================================================== */}
-      {scoreMode === 'students' ? (
+      {scoreMode === 'podium' ? (
+        <div
+          className={`rounded-3xl border-2 p-6 sm:p-8 flex flex-col gap-6 ${
+            isLightMode
+              ? 'bg-gradient-to-b from-amber-50/70 via-white to-slate-50 border-amber-300 shadow-lg'
+              : 'bg-gradient-to-b from-slate-900 via-indigo-950/40 to-slate-900 border-amber-500/40 shadow-2xl'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-black uppercase tracking-widest text-amber-500 block">
+                BẢNG VÀNG THI ĐUA CÁ NHÂN · {formatMonthLabel(selectedMonth).toUpperCase()}
+              </span>
+              <h2 className="text-2xl sm:text-4xl font-black font-display">
+                {(activeClassName || 'LỚP HIỆN TẠI').toUpperCase()}
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={launchContinuousCelebration}
+                className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer shadow"
+              >
+                <Sparkles className="w-4 h-4 fill-current" />
+                <span>Bắn pháo hoa chúc mừng 🎆</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadHonorBoardPng}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer shadow"
+              >
+                <Download className="w-4 h-4" />
+                <span>Tải ảnh gửi nhóm lớp</span>
+              </button>
+            </div>
+          </div>
+
+          {rankedStudents.length === 0 ? (
+            <div className="py-14 text-center text-slate-400">
+              Chưa có học sinh nào có điểm trong {formatMonthLabel(selectedMonth)}. Hãy chuyển sang thẻ{' '}
+              <button
+                type="button"
+                onClick={() => setScoreMode('students')}
+                className="text-emerald-500 font-bold underline cursor-pointer"
+              >
+                Học sinh
+              </button>{' '}
+              để chấm điểm!
+            </div>
+          ) : (
+            <>
+              {/* Podium Top 1 - 2 - 3 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end pt-2">
+                {/* #2 Silver */}
+                {rankedStudents[1] ? (
+                  <div
+                    className={`order-2 md:order-1 rounded-3xl border-2 p-5 text-center flex flex-col items-center gap-1.5 ${
+                      isLightMode
+                        ? 'bg-slate-50 border-slate-300 shadow'
+                        : 'bg-slate-800/80 border-slate-500/50 shadow-xl'
+                    }`}
+                  >
+                    <span className="text-4xl">🥈</span>
+                    <span className="text-xs font-black uppercase text-slate-400">Hạng Nhì</span>
+                    <h3 className="text-xl sm:text-2xl font-black font-display">
+                      {rankedStudents[1].name}
+                    </h3>
+                    <span className="px-3.5 py-1 rounded-xl bg-emerald-500/20 text-emerald-500 font-display font-black text-lg">
+                      ĐTB {rankedStudents[1].avg.toFixed(1)}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      Điểm: {rankedStudents[1].grades.map(formatGradeValue).join(', ')} ({rankedStudents[1].count} cột)
+                    </span>
+                  </div>
+                ) : (
+                  <div className="hidden md:block order-1" />
+                )}
+
+                {/* #1 Gold Champion */}
+                {rankedStudents[0] && (
+                  <div
+                    className={`order-1 md:order-2 rounded-3xl border-4 border-amber-400 p-6 sm:p-7 text-center flex flex-col items-center gap-2 ring-4 ring-amber-400/25 shadow-2xl md:-translate-y-2 ${
+                      isLightMode
+                        ? 'bg-gradient-to-b from-amber-50 to-white'
+                        : 'bg-gradient-to-b from-amber-500/20 via-slate-900 to-slate-900'
+                    }`}
+                  >
+                    <span className="text-5xl animate-bounce">🥇</span>
+                    <span className="px-3 py-0.5 rounded-full bg-amber-400 text-slate-950 text-xs font-black uppercase">
+                      Quán Quân Dẫn Đầu
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-black font-display">
+                      {rankedStudents[0].name}
+                    </h3>
+                    <span className="px-4 py-1.5 rounded-2xl bg-amber-400 text-slate-950 font-display font-black text-xl sm:text-2xl shadow">
+                      ĐTB {rankedStudents[0].avg.toFixed(1)}
+                    </span>
+                    <span className="text-xs text-slate-400 font-semibold">
+                      Điểm: {rankedStudents[0].grades.map(formatGradeValue).join(', ')} ({rankedStudents[0].count} cột)
+                    </span>
+                  </div>
+                )}
+
+                {/* #3 Bronze */}
+                {rankedStudents[2] ? (
+                  <div
+                    className={`order-3 rounded-3xl border-2 p-5 text-center flex flex-col items-center gap-1.5 ${
+                      isLightMode
+                        ? 'bg-orange-50/60 border-orange-300 shadow'
+                        : 'bg-orange-950/30 border-orange-500/40 shadow-xl'
+                    }`}
+                  >
+                    <span className="text-4xl">🥉</span>
+                    <span className="text-xs font-black uppercase text-orange-400">Hạng Ba</span>
+                    <h3 className="text-xl sm:text-2xl font-black font-display">
+                      {rankedStudents[2].name}
+                    </h3>
+                    <span className="px-3.5 py-1 rounded-xl bg-emerald-500/20 text-emerald-500 font-display font-black text-lg">
+                      ĐTB {rankedStudents[2].avg.toFixed(1)}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      Điểm: {rankedStudents[2].grades.map(formatGradeValue).join(', ')} ({rankedStudents[2].count} cột)
+                    </span>
+                  </div>
+                ) : (
+                  <div className="hidden md:block order-3" />
+                )}
+              </div>
+
+              {/* "Tiến bộ vượt bậc" Encouragement Spotlight */}
+              {improvedStudents.length > 0 && (
+                <div
+                  className={`p-4 rounded-2xl border flex flex-wrap items-center gap-2 ${
+                    isLightMode
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                      : 'bg-emerald-950/30 border-emerald-700/50 text-emerald-200'
+                  }`}
+                >
+                  <span className="text-xs font-black uppercase flex items-center gap-1.5 text-emerald-500 mr-1">
+                    <TrendingUp className="w-4 h-4" />
+                    <span>Gương mặt Tiến bộ vượt bậc:</span>
+                  </span>
+                  {improvedStudents.map((st) => (
+                    <span
+                      key={st.name}
+                      className={`px-3 py-1 rounded-xl text-xs font-bold border ${
+                        isLightMode
+                          ? 'bg-white border-emerald-300 text-emerald-900'
+                          : 'bg-slate-900 border-emerald-600/40 text-emerald-300'
+                      }`}
+                    >
+                      🚀 {st.name} ({st.grades.map(formatGradeValue).join(' → ')})
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Full Ranked Bar List */}
+              {rankedStudents.length > 3 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {rankedStudents.slice(3, 15).map((st) => {
+                    const r = getStudentRank(st.name) || 4;
+                    return (
+                      <div
+                        key={st.name}
+                        className={`px-4 py-2.5 rounded-2xl border flex items-center justify-between gap-3 ${
+                          isLightMode
+                            ? 'bg-white border-slate-200'
+                            : 'bg-slate-900/80 border-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 font-display font-black text-xs flex items-center justify-center shrink-0">
+                            #{r}
+                          </span>
+                          <div className="min-w-0">
+                            <span className="font-bold text-sm truncate block">{st.name}</span>
+                            <span className="text-[11px] text-slate-400">
+                              Điểm: {st.grades.map(formatGradeValue).join(', ')}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="font-display font-black text-emerald-500 shrink-0">
+                          TB {st.avg.toFixed(1)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      ) : scoreMode === 'students' ? (
+        /* ===================================================================== */
+        /* MODE 2: MINIMALIST STUDENT GRADEBOOK + CLASS LEADERBOARD              */
+        /* ===================================================================== */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-          {/* LEFT / SIDEBAR: CLASS LEADERBOARD (BẢNG XẾP HẠNG THEO LỚP) */}
+          {/* LEFT / SIDEBAR: CLASS LEADERBOARD */}
           <div
             className={`lg:col-span-4 rounded-2xl border p-4 flex flex-col gap-3 lg:sticky lg:top-4 ${
               isLightMode ? 'bg-white border-slate-200 shadow-xs' : 'bg-slate-900/90 border-slate-800'
@@ -753,19 +1191,17 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
 
               {rankingScope === 'inClass' && rankedStudents.length > 0 && (
                 <button
-                  onClick={() => {
-                    setShowCeremony(true);
-                    launchContinuousCelebration();
-                  }}
+                  onClick={() => setScoreMode('podium')}
                   className="px-2.5 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] flex items-center gap-1 cursor-pointer"
+                  title="Phóng to Bục Vinh Quang toàn màn chiếu"
                 >
                   <Sparkles className="w-3 h-3 fill-current" />
-                  <span>Vinh danh</span>
+                  <span>Bục Vinh Quang</span>
                 </button>
               )}
             </div>
 
-            {/* Scope Toggle: Students in Active Class vs Across All Classes */}
+            {/* Scope Toggle: In Class vs Across 12 Classes */}
             <div
               className={`grid grid-cols-2 gap-1 p-1 rounded-xl text-xs font-bold ${
                 isLightMode ? 'bg-slate-100' : 'bg-slate-950 border border-slate-800'
@@ -795,14 +1231,14 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
                 }`}
               >
                 <School className="w-3.5 h-3.5" />
-                <span>Xếp hạng các lớp</span>
+                <span>Đua Top 12 lớp</span>
               </button>
             </div>
 
             {rankingScope === 'inClass' && (
               <div className="flex items-center justify-between text-[11px] px-1">
                 <span className="text-slate-400 font-semibold">
-                  Đã chấm: <strong className="text-emerald-500">{activeClassStats.count}</strong> điểm
+                  Đã chấm: <strong className="text-emerald-500">{activeClassStats.count}</strong> cột
                   {activeClassStats.count > 0 && ` · ĐTB lớp: ${activeClassStats.avg.toFixed(1)}`}
                 </span>
                 <div className="flex items-center gap-1">
@@ -814,19 +1250,21 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
                         ? 'bg-emerald-500/20 text-emerald-500'
                         : 'text-slate-400 hover:text-slate-300'
                     }`}
+                    title="Xếp hạng theo Điểm trung bình cao nhất"
                   >
                     ĐTB
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRankMetric('sum')}
+                    onClick={() => setRankMetric('count')}
                     className={`px-1.5 py-0.5 rounded font-bold cursor-pointer ${
-                      rankMetric === 'sum'
+                      rankMetric === 'count'
                         ? 'bg-emerald-500/20 text-emerald-500'
                         : 'text-slate-400 hover:text-slate-300'
                     }`}
+                    title="Xếp hạng theo mức độ Tích cực phát biểu (nhiều cột điểm nhất)"
                   >
-                    Tổng
+                    Tích cực
                   </button>
                 </div>
               </div>
@@ -866,6 +1304,12 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
                               {rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`}
                             </span>
                             <span className="truncate">{st.name}</span>
+                            {st.badge === 'streak' && (
+                              <span title="Phong độ xuất sắc (liên tiếp đạt 9–10)">🔥</span>
+                            )}
+                            {st.badge === 'improved' && (
+                              <span title="Tiến bộ vượt bậc">🚀</span>
+                            )}
                           </div>
                           <span className="text-[10px] text-slate-400 font-normal pl-7 truncate">
                             Điểm: {st.grades.map(formatGradeValue).join(', ')} ({st.count} cột)
@@ -878,7 +1322,9 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
                               rank === 1 ? 'text-amber-500 text-base' : 'text-emerald-500'
                             }`}
                           >
-                            {rankMetric === 'avg' ? `TB ${st.avg.toFixed(1)}` : `${st.sum}đ`}
+                            {rankMetric === 'avg'
+                              ? `TB ${st.avg.toFixed(1)}`
+                              : `${st.count} cột`}
                           </span>
                         </div>
                       </div>
@@ -887,14 +1333,15 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
                 </div>
               )
             ) : (
-              /* Ranking Across Classes */
+              /* Ranking Across 12 Classes with Visual Progress Bar */
               <div className="flex flex-col gap-1.5 max-h-[62vh] overflow-y-auto pr-1">
                 {classLeaderboard.map((cls, idx) => {
                   const isCurrent = cls.name === activeClassName;
+                  const pct = Math.min(100, Math.round((cls.avgGrade / 10) * 100));
                   return (
                     <div
                       key={cls.id}
-                      className={`px-3 py-2 rounded-xl flex items-center justify-between gap-2 text-xs sm:text-sm ${
+                      className={`px-3 py-2 rounded-xl flex flex-col gap-1 text-xs sm:text-sm ${
                         isCurrent
                           ? isLightMode
                             ? 'bg-indigo-50 border border-indigo-300 text-indigo-950 font-black'
@@ -904,24 +1351,34 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
                             : 'bg-slate-800/40 text-slate-300 font-semibold'
                       }`}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-6 text-center shrink-0 font-display font-black">
-                          {idx === 0 && cls.gradeCount > 0
-                            ? '🥇'
-                            : idx === 1 && cls.gradeCount > 0
-                              ? '🥈'
-                              : idx === 2 && cls.gradeCount > 0
-                                ? '🥉'
-                                : `#${idx + 1}`}
-                        </span>
-                        <span className="truncate">{cls.name}</span>
-                        <span className="text-[11px] text-slate-400 font-normal">
-                          ({cls.gradeCount} cột)
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-6 text-center shrink-0 font-display font-black">
+                            {idx === 0 && cls.gradeCount > 0
+                              ? '🥇'
+                              : idx === 1 && cls.gradeCount > 0
+                                ? '🥈'
+                                : idx === 2 && cls.gradeCount > 0
+                                  ? '🥉'
+                                  : `#${idx + 1}`}
+                          </span>
+                          <span className="truncate">{cls.name}</span>
+                          <span className="text-[11px] text-slate-400 font-normal">
+                            ({cls.gradeCount} cột)
+                          </span>
+                        </div>
+                        <span className="font-display font-black tabular-nums text-emerald-500 shrink-0">
+                          {cls.gradeCount > 0 ? `TB ${cls.avgGrade.toFixed(1)}` : '—'}
                         </span>
                       </div>
-                      <span className="font-display font-black tabular-nums text-emerald-500 shrink-0">
-                        {cls.gradeCount > 0 ? `TB ${cls.avgGrade.toFixed(1)}` : '—'}
-                      </span>
+                      {cls.gradeCount > 0 && (
+                        <div className="w-full h-1.5 rounded-full bg-slate-500/20 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -934,13 +1391,24 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
             {students.length === 0 ? (
               <div
                 className={`p-8 rounded-2xl border text-center text-sm ${
-                  isLightMode ? 'bg-white border-slate-200 text-slate-600' : 'bg-slate-900 border-slate-800 text-slate-400'
+                  isLightMode
+                    ? 'bg-white border-slate-200 text-slate-600'
+                    : 'bg-slate-900 border-slate-800 text-slate-400'
                 }`}
               >
                 Chưa có danh sách học sinh cho lớp này.
               </div>
             ) : (
               <div className="flex flex-col gap-1.5">
+                {gradePart !== null && visibleStudents.length > 0 && (
+                  <div className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center justify-between">
+                    <span>
+                      Nhấn <strong>Enter ↵</strong> để ghi ngay điểm <strong>{gradePart}</strong> cho{' '}
+                      <strong>{visibleStudents[0].name}</strong>
+                    </span>
+                  </div>
+                )}
+
                 {visibleStudents.map((st) => {
                   const rank = getStudentRank(st.name);
                   const isExpanded = activeGradeStudent === st.name;
@@ -960,7 +1428,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
                             : isLightMode
                               ? 'bg-white border-slate-200 hover:border-slate-300'
                               : 'bg-slate-900/85 border-slate-800 hover:border-slate-700'
-                      } ${st.isAbsent ? 'opacity-45' : ''}`}
+                      }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         {/* Left + Middle: STT + Name + Individual Grade Chips right beside Name */}
@@ -973,34 +1441,42 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
                             {st.stt}
                           </span>
 
-                          <span className="font-bold text-xs sm:text-sm shrink-0">
-                            {st.name}
-                          </span>
+                          <span className="font-bold text-xs sm:text-sm shrink-0">{st.name}</span>
 
-                          {st.isAbsent && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-500 font-bold shrink-0">
-                              Vắng
+                          {st.badge === 'streak' && (
+                            <span className="text-xs" title="Phong độ xuất sắc (liên tiếp điểm 9–10)">
+                              🔥
+                            </span>
+                          )}
+                          {st.badge === 'improved' && (
+                            <span className="text-xs" title="Tiến bộ vượt bậc so với đầu tháng">
+                              🚀
                             </span>
                           )}
 
                           {/* Individual Grade Badges (7, 8, 9...) right next to student name */}
                           {st.grades.length > 0 && (
                             <div className="flex items-center flex-wrap gap-1 ml-0.5">
-                              {st.grades.map((g, gIdx) => (
-                                <button
-                                  key={`${st.name}_g_${gIdx}`}
-                                  type="button"
-                                  onClick={() => handleDeleteGrade(st.name, gIdx)}
-                                  className={`group px-2 py-0.5 rounded-md border font-display font-black text-xs tabular-nums flex items-center gap-0.5 transition-all cursor-pointer ${getGradeChipStyle(
-                                    g,
-                                    isLightMode
-                                  )}`}
-                                  title={`Điểm lần ${gIdx + 1}: ${formatGradeValue(g)} — Bấm để xóa con điểm này`}
-                                >
-                                  <span>{formatGradeValue(g)}</span>
-                                  <X className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity -mr-0.5" />
-                                </button>
-                              ))}
+                              {st.grades.map((g, gIdx) => {
+                                const dateStr = st.dates[gIdx];
+                                return (
+                                  <button
+                                    key={`${st.name}_g_${gIdx}`}
+                                    type="button"
+                                    onClick={() => handleDeleteGrade(st.name, gIdx)}
+                                    className={`group px-2 py-0.5 rounded-md border font-display font-black text-xs tabular-nums flex items-center gap-0.5 transition-all cursor-pointer ${getGradeChipStyle(
+                                      g,
+                                      isLightMode
+                                    )}`}
+                                    title={`Điểm lần ${gIdx + 1}: ${formatGradeValue(g)}${
+                                      dateStr ? ` (ngày ${dateStr})` : ''
+                                    } — Bấm để xóa con điểm này`}
+                                  >
+                                    <span>{formatGradeValue(g)}</span>
+                                    <X className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity -mr-0.5" />
+                                  </button>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -1085,7 +1561,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
                         </div>
                       </div>
 
-                      {/* Inline Quick Grade Picker (4..10 + Decimal Grade Input e.g. 7.5, 8.5) */}
+                      {/* Inline Quick Grade Picker */}
                       {isExpanded && (
                         <div
                           className={`pt-2 border-t flex flex-wrap items-center justify-between gap-2 text-xs animate-in fade-in duration-150 ${
@@ -1160,7 +1636,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
         </div>
       ) : (
         /* ===================================================================== */
-        /* GROUP / TEAM SCOREBOARD                                               */
+        /* MODE 3: GROUP / TEAM SCOREBOARD                                       */
         /* ===================================================================== */
         <div
           className={`grid gap-4 sm:gap-5 ${
@@ -1337,7 +1813,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
         </div>
       )}
 
-      {/* Ceremony Modal */}
+      {/* Group Ceremony Modal */}
       {showCeremony && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div
@@ -1350,49 +1826,15 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
             </div>
 
             <span className="text-xs font-black uppercase tracking-widest text-amber-500 block mb-1">
-              {scoreMode === 'students'
-                ? `DẪN ĐẦU ${activeClassName?.toUpperCase() || 'LỚP'} · ${formatMonthLabel(selectedMonth).toUpperCase()}`
-                : 'NHÓM DẪN ĐẦU XUẤT SẮC'}
+              NHÓM DẪN ĐẦU XUẤT SẮC
             </span>
             <h2 className="text-3xl sm:text-4xl font-black font-display mb-4">
-              {scoreMode === 'students'
-                ? topStudents.map((s) => s.name).join(' & ')
-                : topGroups.map((g) => g.name).join(' & ')}
+              {topGroups.map((g) => g.name).join(' & ')}
             </h2>
 
             <div className="inline-block px-6 py-2.5 rounded-2xl bg-amber-400 text-amber-950 font-black text-xl sm:text-2xl font-display mb-6 shadow-lg">
-              {scoreMode === 'students'
-                ? topStudents[0]
-                  ? `ĐTB ${topStudents[0].avg.toFixed(1)} (${topStudents[0].count} cột điểm) 🥇`
-                  : 'XUẤT SẮC 🥇'
-                : `${maxGroupScore} ĐIỂM 🥇`}
+              {maxGroupScore} ĐIỂM 🥇
             </div>
-
-            {scoreMode === 'students' && rankedStudents.length > 1 && (
-              <div className="flex flex-col gap-1.5 mb-6 text-left max-w-md mx-auto">
-                {rankedStudents.slice(0, 5).map((s) => {
-                  const r = getStudentRank(s.name) || 1;
-                  return (
-                    <div
-                      key={s.name}
-                      className={`px-3.5 py-2 rounded-xl border flex items-center justify-between text-sm font-bold ${
-                        isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-800 border-slate-700'
-                      }`}
-                    >
-                      <span className="truncate mr-2">
-                        {r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : `#${r}`} {s.name}{' '}
-                        <span className="text-xs text-slate-400 font-normal">
-                          ({s.grades.map(formatGradeValue).join(', ')})
-                        </span>
-                      </span>
-                      <span className="font-display font-black text-emerald-500 shrink-0">
-                        TB {s.avg.toFixed(1)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
 
             <div className="flex justify-center gap-3">
               <button

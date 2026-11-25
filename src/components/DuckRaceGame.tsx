@@ -190,7 +190,8 @@ export const DuckRaceGame: React.FC<DuckRaceGameProps> = ({
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
         return;
       }
-      if (e.code === 'Space' || e.code === 'Enter') {
+      if (canvasRef.current && canvasRef.current.offsetParent === null) return;
+      if (e.code === 'Space' || e.code === 'Enter' || e.key === 'PageDown') {
         e.preventDefault();
         if (raceState === 'ready') {
           handleStartRace();

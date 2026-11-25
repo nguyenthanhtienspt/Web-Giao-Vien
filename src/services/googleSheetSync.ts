@@ -1,6 +1,11 @@
-import { SavedClass, GroupScore, GroupItem, ClassMonthlyStudentScores } from '../types';
+import { SavedClass, GroupScore, GroupItem, ClassMonthlyStudentScores, ClassMonthlyGradeDates } from '../types';
 import { classStorage, sortClassesByGrade } from './classStorage';
-import { classroomStateStorage, normalizeMonthlyScores } from './classroomStateStorage';
+import {
+  classroomStateStorage,
+  normalizeMonthlyScores,
+  flattenQuestionSetsForCloud,
+  parseCloudQuestionsToSets,
+} from './classroomStateStorage';
 
 const URL_STORAGE_KEY = 'tro_ly_gsheet_webapp_url_v1';
 const PIN_REMEMBER_KEY = 'tro_ly_gsheet_pin_remember_v1';
@@ -18,6 +23,7 @@ export interface ScoreGroupsCloudEnvelope {
   __v: 2;
   groups: GroupScore[];
   monthlyStudentScores: ClassMonthlyStudentScores;
+  monthlyGradeDates?: ClassMonthlyGradeDates;
 }
 
 export interface RemoteClassStateItem {
@@ -297,6 +303,7 @@ export const googleSheetSync = {
           __v: 2,
           groups: classroomStateStorage.getScoreboardForClass(cls.id),
           monthlyStudentScores: classroomStateStorage.getMonthlyScoresForClass(cls.id),
+          monthlyGradeDates: classroomStateStorage.getMonthlyGradeDatesForClass(cls.id),
         },
         absent: classroomStateStorage.getAbsentForClass(cls.id),
         splitGroups: classroomStateStorage.getSplitGroupsForClass(cls.id),
@@ -305,7 +312,7 @@ export const googleSheetSync = {
 
     return {
       classes,
-      questions: qBank.questions,
+      questions: flattenQuestionSetsForCloud(qBank),
       classStates,
     };
   },
@@ -352,7 +359,7 @@ export const googleSheetSync = {
         const currentQ = classroomStateStorage.getQuestionBank();
         classroomStateStorage.saveQuestionBank({
           ...currentQ,
-          questions,
+          sets: parseCloudQuestionsToSets(questions),
         });
       }
 
@@ -374,6 +381,9 @@ export const googleSheetSync = {
                 classId,
                 normalizeMonthlyScores(env.monthlyStudentScores)
               );
+            }
+            if (env.monthlyGradeDates && typeof env.monthlyGradeDates === 'object') {
+              classroomStateStorage.saveMonthlyGradeDatesForClass(classId, env.monthlyGradeDates);
             }
           }
           if (Array.isArray(st.absent)) {

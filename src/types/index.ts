@@ -31,6 +31,12 @@ export interface GroupScore {
  */
 export type ClassMonthlyStudentScores = Record<string, Record<string, number[]>>;
 
+/**
+ * Parallel map of monthKey ("YYYY-MM") -> { [studentName]: string[] }
+ * Stores short DD/MM date labels matching each grade index.
+ */
+export type ClassMonthlyGradeDates = Record<string, Record<string, string[]>>;
+
 export interface SavedClass {
   id: string;
   name: string;
