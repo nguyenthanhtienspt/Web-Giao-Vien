@@ -87,6 +87,7 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
   const [editName, setEditName] = useState<string>('');
   const [showCeremony, setShowCeremony] = useState<boolean>(false);
   const [studentQuery, setStudentQuery] = useState<string>('');
+  const [pointStep, setPointStep] = useState<number>(1);
   const [activeQuickStudent, setActiveQuickStudent] = useState<string | null>(null);
   const [directScoreInput, setDirectScoreInput] = useState<string>('');
 
@@ -445,33 +446,63 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
           </div>
 
           {scoreMode === 'students' && (
-            <div
-              className={`flex items-center gap-1 px-1.5 py-1 rounded-xl border ${
-                isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
-              }`}
-            >
-              <button
-                onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, -1))}
-                className="p-1 rounded hover:bg-slate-500/20 cursor-pointer"
-                title="Tháng trước"
+            <>
+              <div
+                className={`flex items-center gap-1 px-1.5 py-1 rounded-xl border ${
+                  isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+                }`}
               >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => e.target.value && onSelectMonth(e.target.value)}
-                aria-label="Chọn tháng"
-                className="bg-transparent text-xs sm:text-sm font-display font-black text-emerald-500 outline-none cursor-pointer px-1"
-              />
-              <button
-                onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, 1))}
-                className="p-1 rounded hover:bg-slate-500/20 cursor-pointer"
-                title="Tháng sau"
+                <button
+                  onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, -1))}
+                  className="p-1 rounded hover:bg-slate-500/20 cursor-pointer"
+                  title="Tháng trước"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => e.target.value && onSelectMonth(e.target.value)}
+                  aria-label="Chọn tháng"
+                  className="bg-transparent text-xs sm:text-sm font-display font-black text-emerald-500 outline-none cursor-pointer px-1"
+                />
+                <button
+                  onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, 1))}
+                  className="p-1 rounded hover:bg-slate-500/20 cursor-pointer"
+                  title="Tháng sau"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Quick Multi-Point Step Selector */}
+              <div
+                className={`flex items-center gap-1 p-1 rounded-xl border ${
+                  isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+                }`}
+                title="Chọn mức điểm mỗi lần bấm nút cộng"
               >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+                <span className="text-[11px] font-bold text-slate-400 px-1.5 hidden sm:inline">
+                  Mức cộng:
+                </span>
+                {[1, 2, 5, 10].map((step) => (
+                  <button
+                    key={step}
+                    type="button"
+                    onClick={() => setPointStep(step)}
+                    className={`px-2 py-1 rounded-lg font-display font-black text-xs cursor-pointer transition-all ${
+                      pointStep === step
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : isLightMode
+                          ? 'text-slate-600 hover:bg-slate-200/70'
+                          : 'text-slate-400 hover:bg-slate-800'
+                    }`}
+                  >
+                    +{step}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </div>
 
@@ -796,16 +827,20 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
 
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
-                            onClick={(e) => handleModifyStudentScore(st.name, -1, e)}
+                            onClick={(e) => handleModifyStudentScore(st.name, -pointStep, e)}
                             disabled={st.score <= 0}
-                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-90 disabled:opacity-25 ${
+                            className={`min-w-7 px-1.5 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-90 disabled:opacity-25 font-display font-black text-xs ${
                               isLightMode
                                 ? 'bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600'
                                 : 'bg-slate-800 hover:bg-rose-950 text-slate-300 hover:text-rose-400'
                             }`}
-                            title="Trừ 1 điểm"
+                            title={`Trừ ${pointStep} điểm`}
                           >
-                            <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                            {pointStep === 1 ? (
+                              <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                            ) : (
+                              `−${pointStep}`
+                            )}
                           </button>
 
                           <button
@@ -818,8 +853,12 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
                                 setDirectScoreInput(String(st.score));
                               }
                             }}
-                            className={`min-w-[2.25rem] px-1.5 h-7 rounded-lg text-center font-display font-black text-base sm:text-lg tabular-nums transition-colors cursor-pointer ${
-                              isLightMode ? 'hover:bg-indigo-100' : 'hover:bg-slate-800'
+                            className={`min-w-[2.5rem] px-1.5 h-7 rounded-lg border border-dashed text-center font-display font-black text-base sm:text-lg tabular-nums transition-colors cursor-pointer ${
+                              isExpanded
+                                ? 'border-indigo-500 bg-indigo-500/15'
+                                : isLightMode
+                                  ? 'border-slate-300 hover:border-indigo-400 hover:bg-indigo-50'
+                                  : 'border-slate-700 hover:border-indigo-400 hover:bg-slate-800'
                             } ${
                               st.score > 0
                                 ? rank === 1
@@ -829,17 +868,21 @@ export const ScoreboardTab: React.FC<ScoreboardTabProps> = ({
                                   ? 'text-slate-400'
                                   : 'text-slate-500'
                             }`}
-                            title="Bấm vào số điểm để cộng nhiều điểm (+2, +5, +10), nhập số bất kỳ hoặc trừ đổi thưởng"
+                            title="Bấm vào ô điểm để nhập số điểm bất kỳ hoặc đổi quà"
                           >
                             {st.score}
                           </button>
 
                           <button
-                            onClick={(e) => handleModifyStudentScore(st.name, 1, e)}
-                            className="w-8 h-7 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
-                            title="Cộng 1 điểm"
+                            onClick={(e) => handleModifyStudentScore(st.name, pointStep, e)}
+                            className="min-w-8 px-1.5 h-7 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer font-display font-black text-xs"
+                            title={`Cộng ${pointStep} điểm`}
                           >
-                            <Plus className="w-4 h-4 stroke-[3]" />
+                            {pointStep === 1 ? (
+                              <Plus className="w-4 h-4 stroke-[3]" />
+                            ) : (
+                              `+${pointStep}`
+                            )}
                           </button>
                         </div>
                       </div>
