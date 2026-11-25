@@ -42,7 +42,7 @@ export const TabsNav: React.FC<TabsNavProps> = ({
     {
       id: 'scores' as TabId,
       number: '4',
-      label: `BẢNG ĐIỂM (${scoreGroupCount} NHÓM)`,
+      label: 'BẢNG ĐIỂM CÁ NHÂN & NHÓM',
       icon: Trophy,
       accentColor: 'rose',
     },

@@ -1,4 +1,4 @@
-import { GroupItem, GroupScore } from '../types';
+import { GroupItem, GroupScore, ClassMonthlyStudentScores } from '../types';
 
 export const SCORE_GROUP_PALETTES = [
   { color: 'border-blue-500', badgeColor: 'bg-blue-600' },
@@ -28,8 +28,31 @@ const ABSENT_KEY = 'tro_ly_absent_by_class_v1';
 const PICKED_KEY = 'tro_ly_picked_by_class_v1';
 const SPLIT_GROUPS_KEY = 'tro_ly_split_groups_by_class_v1';
 const SCOREBOARD_BY_CLASS_KEY = 'tro_ly_scoreboard_by_class_v1';
+const STUDENT_MONTHLY_SCORES_KEY = 'tro_ly_student_monthly_scores_v1';
 const LEGACY_SCOREBOARD_KEY = 'tro_ly_lop_hoc_scoreboard_v2';
 const QUESTION_BANK_KEY = 'tro_ly_question_bank_v1';
+
+export function getCurrentMonthKey(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+export function shiftMonthKey(monthKey: string, deltaMonths: number): string {
+  const [yStr, mStr] = monthKey.split('-');
+  const y = parseInt(yStr, 10) || new Date().getFullYear();
+  const m = (parseInt(mStr, 10) || 1) - 1;
+  const d = new Date(y, m + deltaMonths, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function formatMonthLabel(monthKey: string): string {
+  const [yStr, mStr] = monthKey.split('-');
+  const m = parseInt(mStr, 10);
+  if (!yStr || isNaN(m)) return monthKey;
+  return `Tháng ${String(m).padStart(2, '0')} / ${yStr}`;
+}
 
 export interface QuestionBankState {
   enabled: boolean;
@@ -150,6 +173,19 @@ export const classroomStateStorage = {
     const map = readJsonMap<Record<string, GroupScore[]>>(SCOREBOARD_BY_CLASS_KEY, {});
     map[classId] = groups;
     writeJsonMap(SCOREBOARD_BY_CLASS_KEY, map);
+  },
+
+  // 4b. Individual student scores by month per class: classId -> { "YYYY-MM": { [studentName]: score } }
+  getMonthlyScoresForClass(classId: string): ClassMonthlyStudentScores {
+    const map = readJsonMap<Record<string, ClassMonthlyStudentScores>>(STUDENT_MONTHLY_SCORES_KEY, {});
+    const clsData = map[classId];
+    return clsData && typeof clsData === 'object' ? clsData : {};
+  },
+
+  saveMonthlyScoresForClass(classId: string, monthlyScores: ClassMonthlyStudentScores): void {
+    const map = readJsonMap<Record<string, ClassMonthlyStudentScores>>(STUDENT_MONTHLY_SCORES_KEY, {});
+    map[classId] = monthlyScores;
+    writeJsonMap(STUDENT_MONTHLY_SCORES_KEY, map);
   },
 
   // 5. Question bank for Random Picker

@@ -15,13 +15,22 @@ import { AttendanceModal } from './components/AttendanceModal';
 import { NoiseMeterModal } from './components/NoiseMeterModal';
 import { FloatingMiniTimer } from './components/FloatingMiniTimer';
 import { GoogleSheetModal } from './components/GoogleSheetModal';
-import { TabId, SavedClass, GroupItem, GroupScore, TimerSnapshot } from './types';
+import {
+  TabId,
+  SavedClass,
+  GroupItem,
+  GroupScore,
+  TimerSnapshot,
+  ClassMonthlyStudentScores,
+} from './types';
 import { classStorage } from './services/classStorage';
 import {
   classroomStateStorage,
   createDefaultScoreGroups,
   convertSplitGroupsToScoreGroups,
   SCORE_GROUP_PALETTES,
+  getCurrentMonthKey,
+  formatMonthLabel,
 } from './services/classroomStateStorage';
 import { googleSheetSync } from './services/googleSheetSync';
 
@@ -59,7 +68,7 @@ export default function App() {
     classroomStateStorage.getAbsentForClass(activeClassId)
   );
 
-  // Per-class Split Groups & Scoreboard + Undo stack
+  // Per-class Split Groups & Group Scoreboard + Undo stack
   const [splitGroups, setSplitGroups] = useState<GroupItem[]>(
     () => classroomStateStorage.getSplitGroupsForClass(activeClassId) || []
   );
@@ -67,6 +76,13 @@ export default function App() {
     classroomStateStorage.getScoreboardForClass(activeClassId)
   );
   const [scoreUndoStack, setScoreUndoStack] = useState<GroupScore[][]>([]);
+
+  // Per-class Monthly Individual Student Scores + Month selector + Undo stack
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentMonthKey());
+  const [monthlyScores, setMonthlyScores] = useState<ClassMonthlyStudentScores>(() =>
+    classroomStateStorage.getMonthlyScoresForClass(activeClassId)
+  );
+  const [studentScoreUndoStack, setStudentScoreUndoStack] = useState<ClassMonthlyStudentScores[]>([]);
 
   // Timer snapshot & external commands for FloatingMiniTimer / Quick Question Timer
   const [timerSnapshot, setTimerSnapshot] = useState<TimerSnapshot>({
@@ -95,6 +111,7 @@ export default function App() {
       setAbsentStudents(classroomStateStorage.getAbsentForClass(targetClass.id));
       setSplitGroups(classroomStateStorage.getSplitGroupsForClass(targetClass.id) || []);
       setScoreGroups(classroomStateStorage.getScoreboardForClass(targetClass.id));
+      setMonthlyScores(classroomStateStorage.getMonthlyScoresForClass(targetClass.id));
     }
   };
 
@@ -142,7 +159,9 @@ export default function App() {
     setAbsentStudents(classroomStateStorage.getAbsentForClass(activeClassId));
     setSplitGroups(classroomStateStorage.getSplitGroupsForClass(activeClassId) || []);
     setScoreGroups(classroomStateStorage.getScoreboardForClass(activeClassId));
+    setMonthlyScores(classroomStateStorage.getMonthlyScoresForClass(activeClassId));
     setScoreUndoStack([]);
+    setStudentScoreUndoStack([]);
   }, [activeClassId]);
 
   // Switch active class
@@ -160,7 +179,7 @@ export default function App() {
     scheduleBackgroundSheetPush();
   };
 
-  // Update scoreboard for active class (with optional Undo history)
+  // Update group scoreboard for active class (with optional Undo history)
   const handleUpdateScoreGroups = (next: GroupScore[], recordUndo = true) => {
     if (recordUndo) {
       setScoreUndoStack((prev) => [...prev.slice(-19), scoreGroups]);
@@ -176,6 +195,45 @@ export default function App() {
     setScoreUndoStack((prev) => prev.slice(0, -1));
     setScoreGroups(previous);
     classroomStateStorage.saveScoreboardForClass(activeClassId, previous);
+    scheduleBackgroundSheetPush();
+  };
+
+  // Update individual student monthly score (with Undo history)
+  const handleUpdateStudentMonthlyScore = (
+    studentName: string,
+    delta: number,
+    monthKey: string = selectedMonth
+  ) => {
+    setStudentScoreUndoStack((prev) => [...prev.slice(-29), monthlyScores]);
+    const monthRecord = { ...(monthlyScores[monthKey] || {}) };
+    const nextVal = Math.max(0, (monthRecord[studentName] || 0) + delta);
+    monthRecord[studentName] = nextVal;
+    const nextAllMonths: ClassMonthlyStudentScores = {
+      ...monthlyScores,
+      [monthKey]: monthRecord,
+    };
+    setMonthlyScores(nextAllMonths);
+    classroomStateStorage.saveMonthlyScoresForClass(activeClassId, nextAllMonths);
+    scheduleBackgroundSheetPush();
+  };
+
+  const handleResetMonthScores = (monthKey: string) => {
+    setStudentScoreUndoStack((prev) => [...prev.slice(-29), monthlyScores]);
+    const nextAllMonths: ClassMonthlyStudentScores = {
+      ...monthlyScores,
+      [monthKey]: {},
+    };
+    setMonthlyScores(nextAllMonths);
+    classroomStateStorage.saveMonthlyScoresForClass(activeClassId, nextAllMonths);
+    scheduleBackgroundSheetPush();
+  };
+
+  const handleUndoStudentMonthlyScore = () => {
+    if (studentScoreUndoStack.length === 0) return;
+    const previous = studentScoreUndoStack[studentScoreUndoStack.length - 1];
+    setStudentScoreUndoStack((prev) => prev.slice(0, -1));
+    setMonthlyScores(previous);
+    classroomStateStorage.saveMonthlyScoresForClass(activeClassId, previous);
     scheduleBackgroundSheetPush();
   };
 
@@ -204,7 +262,7 @@ export default function App() {
     setActiveTab('scores');
   };
 
-  // Quick +1/+2 score award from RandomPickerTab
+  // Quick +1/+2 group score award from RandomPickerTab
   const handleQuickAwardScore = (groupId: number, delta: number) => {
     const next = scoreGroups.map((g) =>
       g.id === groupId ? { ...g, score: Math.max(0, g.score + delta) } : g
@@ -325,6 +383,11 @@ export default function App() {
             scoreGroups={scoreGroups}
             splitGroups={splitGroups}
             onQuickAwardScore={handleQuickAwardScore}
+            selectedMonthLabel={formatMonthLabel(selectedMonth)}
+            currentMonthStudentScores={monthlyScores[selectedMonth] || {}}
+            onQuickAwardStudentScore={(stName, delta) =>
+              handleUpdateStudentMonthlyScore(stName, delta, selectedMonth)
+            }
             onStartQuickTimer={handleStartQuickTimer}
             onQuestionBankChanged={scheduleBackgroundSheetPush}
             onOpenClassManager={() => setIsClassManagerOpen(true)}
@@ -359,11 +422,20 @@ export default function App() {
             isLightMode={isLightMode}
             isActive={activeTab === 'scores'}
             activeClassName={activeClass?.name}
+            students={customList}
+            absentStudents={absentStudents}
             groups={scoreGroups}
             onUpdateGroups={handleUpdateScoreGroups}
-            canUndo={scoreUndoStack.length > 0}
-            onUndo={handleUndoScore}
+            canUndoGroups={scoreUndoStack.length > 0}
+            onUndoGroups={handleUndoScore}
             onChangeGroupCount={handleChangeScoreGroupCount}
+            monthlyScores={monthlyScores}
+            selectedMonth={selectedMonth}
+            onSelectMonth={setSelectedMonth}
+            onUpdateStudentScore={handleUpdateStudentMonthlyScore}
+            onResetMonthScores={handleResetMonthScores}
+            canUndoStudentScore={studentScoreUndoStack.length > 0}
+            onUndoStudentScore={handleUndoStudentMonthlyScore}
           />
         </div>
       </main>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { RotateCcw, Shuffle, Sparkles, CheckCircle2, Layers, FileText, Hash, Edit3, X, Check, Trash2, CheckSquare, Square, CheckCheck, RefreshCw, AlertCircle, Play, Trophy, Maximize2, Minimize2, ArrowUpDown, HelpCircle, Timer, Plus } from 'lucide-react';
+import { RotateCcw, Shuffle, Sparkles, CheckCircle2, Layers, FileText, Hash, Edit3, X, Check, Trash2, CheckSquare, Square, CheckCheck, RefreshCw, AlertCircle, Play, Trophy, Maximize2, Minimize2, ArrowUpDown, HelpCircle, Timer, Plus, GraduationCap } from 'lucide-react';
 import { soundManager } from '../services/sound';
 import { SavedClass, GroupScore, GroupItem } from '../types';
 import { sortVietnameseStudentNames } from '../services/classStorage';
@@ -23,6 +23,9 @@ interface RandomPickerTabProps {
   scoreGroups?: GroupScore[];
   splitGroups?: GroupItem[];
   onQuickAwardScore?: (groupId: number, delta: number) => void;
+  selectedMonthLabel?: string;
+  currentMonthStudentScores?: Record<string, number>;
+  onQuickAwardStudentScore?: (studentName: string, delta: number) => void;
   onStartQuickTimer?: (seconds: number) => void;
   onQuestionBankChanged?: () => void;
   onOpenClassManager: () => void;
@@ -70,6 +73,9 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
   scoreGroups = [],
   splitGroups = [],
   onQuickAwardScore,
+  selectedMonthLabel = 'Tháng này',
+  currentMonthStudentScores = {},
+  onQuickAwardStudentScore,
   onStartQuickTimer,
   onQuestionBankChanged,
   onOpenClassManager,
@@ -159,6 +165,13 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
     soundManager.playPointAdd();
     setAwardedFeedback(`Đã +${delta} điểm cho ${groupName}!`);
     window.setTimeout(() => setAwardedFeedback(null), 2200);
+  };
+
+  const triggerQuickStudentScore = (studentName: string, delta: number) => {
+    onQuickAwardStudentScore?.(studentName, delta);
+    soundManager.playPointAdd();
+    setAwardedFeedback(`Đã +${delta}đ cá nhân (${selectedMonthLabel}) cho ${studentName}!`);
+    window.setTimeout(() => setAwardedFeedback(null), 2400);
   };
 
   // Modal for editing custom list
@@ -1284,6 +1297,55 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
                     </div>
                   )}
 
+                  {/* Quick Individual Student Monthly Score Bar */}
+                  {onQuickAwardStudentScore && (() => {
+                    const pickedStudentNames =
+                      pickerMode === 'numbers'
+                        ? latestPicksNumbers
+                            .map((n) => customList[n - 1])
+                            .filter((s): s is string => Boolean(s))
+                        : latestPickedItems.filter((item) => customList.includes(item));
+                    if (pickedStudentNames.length === 0) return null;
+                    return (
+                      <div
+                        className={`p-3 rounded-2xl border flex flex-wrap items-center justify-center gap-2 ${
+                          isLightMode
+                            ? 'bg-emerald-50/80 border-emerald-200 text-slate-800'
+                            : 'bg-emerald-950/30 border-emerald-800/60 text-slate-200'
+                        }`}
+                      >
+                        <span className="text-xs font-black text-emerald-500 flex items-center gap-1 mr-1">
+                          <GraduationCap className="w-4 h-4" />
+                          <span>Điểm cá nhân ({selectedMonthLabel}):</span>
+                        </span>
+                        {pickedStudentNames.map((stName) => {
+                          const curPts = currentMonthStudentScores[stName] || 0;
+                          return (
+                            <div key={stName} className="flex items-center flex-wrap gap-1.5">
+                              <span className="text-xs font-bold">
+                                {stName}{' '}
+                                <strong className="text-amber-500 font-mono">({curPts}đ)</strong>:
+                              </span>
+                              {[1, 2, 5].map((pts) => (
+                                <button
+                                  key={pts}
+                                  onClick={() => triggerQuickStudentScore(stName, pts)}
+                                  className={`px-2.5 py-1 rounded-xl text-xs font-black transition-transform active:scale-95 cursor-pointer ${
+                                    pts === 5
+                                      ? 'bg-amber-400 text-slate-950 shadow'
+                                      : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs'
+                                  }`}
+                                >
+                                  +{pts}đ
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
                   {onQuickAwardScore && scoreGroups.length > 0 && (
                     <div
                       className={`p-3 rounded-2xl border flex flex-wrap items-center justify-center gap-2 ${
@@ -1841,6 +1903,40 @@ export const RandomPickerTab: React.FC<RandomPickerTabProps> = ({
                 <p className="text-base sm:text-xl font-black text-white font-display">
                   {currentPickedQuestion}
                 </p>
+              </div>
+            )}
+
+            {/* Quick Individual Student Monthly Score inside Winner Modal */}
+            {onQuickAwardStudentScore && winnerNotification.winners.length > 0 && (
+              <div className="w-full mt-3 p-3 rounded-2xl bg-emerald-950/50 border border-emerald-600/40 flex flex-wrap items-center justify-center gap-2">
+                <span className="text-xs font-black text-emerald-300 flex items-center gap-1">
+                  <GraduationCap className="w-4 h-4" />
+                  <span>Cộng điểm cá nhân ({selectedMonthLabel}):</span>
+                </span>
+                {winnerNotification.winners.map((w) => {
+                  if (!customList.includes(w.studentName)) return null;
+                  const curPts = currentMonthStudentScores[w.studentName] || 0;
+                  return (
+                    <div key={String(w.id)} className="flex items-center flex-wrap gap-1.5">
+                      <span className="text-xs font-bold text-white">
+                        {w.studentName} <strong className="text-amber-300">({curPts}đ)</strong>:
+                      </span>
+                      {[1, 2, 5].map((pts) => (
+                        <button
+                          key={pts}
+                          onClick={() => triggerQuickStudentScore(w.studentName, pts)}
+                          className={`px-2.5 py-1 rounded-xl text-xs font-black cursor-pointer transition-transform active:scale-95 ${
+                            pts === 5
+                              ? 'bg-amber-400 text-slate-950'
+                              : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                          }`}
+                        >
+                          +{pts}đ
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
             )}
 

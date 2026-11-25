@@ -1,4 +1,4 @@
-import { SavedClass, GroupScore, GroupItem } from '../types';
+import { SavedClass, GroupScore, GroupItem, ClassMonthlyStudentScores } from '../types';
 import { classStorage, sortClassesByGrade } from './classStorage';
 import { classroomStateStorage } from './classroomStateStorage';
 
@@ -14,9 +14,15 @@ const BUILTIN_SCRIPT_URL =
 const ENV_DEFAULT_URL =
   (import.meta.env.VITE_GSHEET_SCRIPT_URL as string | undefined) || BUILTIN_SCRIPT_URL;
 
+export interface ScoreGroupsCloudEnvelope {
+  __v: 2;
+  groups: GroupScore[];
+  monthlyStudentScores: ClassMonthlyStudentScores;
+}
+
 export interface RemoteClassStateItem {
   className: string;
-  scoreGroups?: GroupScore[] | null;
+  scoreGroups?: GroupScore[] | ScoreGroupsCloudEnvelope | null;
   absent?: string[];
   splitGroups?: GroupItem[] | null;
   updatedAt?: string;
@@ -287,7 +293,11 @@ export const googleSheetSync = {
     classes.forEach((cls) => {
       classStates[cls.id] = {
         className: cls.name,
-        scoreGroups: classroomStateStorage.getScoreboardForClass(cls.id),
+        scoreGroups: {
+          __v: 2,
+          groups: classroomStateStorage.getScoreboardForClass(cls.id),
+          monthlyStudentScores: classroomStateStorage.getMonthlyScoresForClass(cls.id),
+        },
         absent: classroomStateStorage.getAbsentForClass(cls.id),
         splitGroups: classroomStateStorage.getSplitGroupsForClass(cls.id),
       };
@@ -350,6 +360,18 @@ export const googleSheetSync = {
         Object.entries(classStates).forEach(([classId, st]) => {
           if (Array.isArray(st.scoreGroups) && st.scoreGroups.length > 0) {
             classroomStateStorage.saveScoreboardForClass(classId, st.scoreGroups);
+          } else if (
+            st.scoreGroups &&
+            typeof st.scoreGroups === 'object' &&
+            '__v' in st.scoreGroups
+          ) {
+            const env = st.scoreGroups as ScoreGroupsCloudEnvelope;
+            if (Array.isArray(env.groups) && env.groups.length > 0) {
+              classroomStateStorage.saveScoreboardForClass(classId, env.groups);
+            }
+            if (env.monthlyStudentScores && typeof env.monthlyStudentScores === 'object') {
+              classroomStateStorage.saveMonthlyScoresForClass(classId, env.monthlyStudentScores);
+            }
           }
           if (Array.isArray(st.absent)) {
             classroomStateStorage.saveAbsentForClass(classId, st.absent);

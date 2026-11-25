@@ -25,6 +25,11 @@ export interface GroupScore {
   memberCount?: number;
 }
 
+/**
+ * Map of monthKey ("YYYY-MM") -> { [studentName]: score }
+ */
+export type ClassMonthlyStudentScores = Record<string, Record<string, number>>;
+
 export interface SavedClass {
   id: string;
   name: string;
